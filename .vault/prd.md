@@ -169,9 +169,9 @@ model CompensationRecord {
   person        Person   @relation(fields: [personId], references: [id])
   effectiveDate DateTime
   endDate       DateTime?
-  annualSalary  Float?       // For salaried employees
-  hourlyRate    Float?       // For contractors
-  burdenRate    Float    @default(1.0)  // Multiplier for benefits, taxes, etc.
+  annualSalary  Decimal?     // For salaried employees
+  hourlyRate    Decimal?     // For contractors
+  burdenRate    Decimal  @default(1.0)  // Multiplier for benefits, taxes, etc.
   // For salaried: total cost = (annualSalary * burdenRate) / 12 / actualHoursWorked
   // For contractors: total cost = hourlyRate * hours (no burden adjustment)
 }
@@ -187,8 +187,8 @@ model Project {
   status        ProjectStatus
   startDate     DateTime?
   endDate       DateTime?
-  contractValue Float?      // Total contract value if fixed-bid
-  monthlyRetainer Float?    // If retainer-based
+  contractValue Decimal?    // Total contract value if fixed-bid
+  monthlyRetainer Decimal?  // If retainer-based
 
   timeEntries   TimeEntry[]
   allocations   Allocation[]
@@ -238,7 +238,7 @@ model RevenueRecord {
   project       Project  @relation(fields: [projectId], references: [id])
   periodStart   DateTime
   periodEnd     DateTime
-  amount        Float
+  amount        Decimal
   basis         AccountingBasis
   source        String   @default("manual")  // "quickbooks", "manual", "invoice"
 }
@@ -259,24 +259,24 @@ model FinancialPeriod {
   import        DataImport? @relation(fields: [importId], references: [id])
 
   // Top-level P&L
-  totalRevenue    Float
-  totalCOGS       Float
-  grossProfit     Float
-  grossMargin     Float    // Stored as decimal (0.35 = 35%)
-  totalOpEx       Float
-  netIncome       Float
-  netMargin       Float
+  totalRevenue    Decimal
+  totalCOGS       Decimal
+  grossProfit     Decimal
+  grossMargin     Decimal  // Stored as decimal (0.35 = 35%)
+  totalOpEx       Decimal
+  netIncome       Decimal
+  netMargin       Decimal
 
   // COGS breakdown
-  cogsPayroll     Float?
-  cogsContractors Float?
-  cogsSoftware    Float?
+  cogsPayroll     Decimal?
+  cogsContractors Decimal?
+  cogsSoftware    Decimal?
 
   // Adjustment fields
-  estimatedContractorLag  Float?   // Estimated uninvoiced contractor cost
-  adjustedCOGS            Float?   // COGS + contractor lag estimate
-  adjustedGrossProfit     Float?
-  adjustedGrossMargin     Float?
+  estimatedContractorLag  Decimal?  // Estimated uninvoiced contractor cost
+  adjustedCOGS            Decimal?  // COGS + contractor lag estimate
+  adjustedGrossProfit     Decimal?
+  adjustedGrossMargin     Decimal?
 
   lineItems     LineItem[]
 }
@@ -288,7 +288,7 @@ model LineItem {
   category      String       // "Income", "Cost of Goods Sold", "Expenses"
   subcategory   String?      // "Contractors", "Essential Software", etc.
   name          String       // "Engineering Contractors", "Travel", etc.
-  amount        Float
+  amount        Decimal
   depth         Int          // Indentation level from QB export (0, 1, 2)
   isTotal       Boolean      // Whether this is a "Total for..." row
 }
