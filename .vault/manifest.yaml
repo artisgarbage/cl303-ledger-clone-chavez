@@ -1,0 +1,15 @@
+contract_version: '1.0.0'
+project_id: cl303-ledger-clone-chavez
+repo: artisgarbage/cl303-ledger-clone-chavez
+default_branch: main
+vault_path: .vault
+agent_permissions:
+  can_push_branches: true
+  can_open_prs: true
+  can_merge_prs: false
+  can_modify_ci: false
+  can_modify_github_settings: false
+budget_overrides: {}
+sync_policy: bidirectional
+adopted_at: '2026-05-06'
+adopted_by: engineer
