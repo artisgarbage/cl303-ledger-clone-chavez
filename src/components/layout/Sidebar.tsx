@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
-  FileText,
+  Sparkles,
   Upload,
   Settings,
   Shield,
@@ -23,7 +23,7 @@ const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/people", label: "People", icon: Users },
-  { href: "/reports", label: "Reports", icon: FileText },
+  { href: "/reports", label: "Reports", icon: Sparkles },
   { href: "/imports", label: "Imports", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

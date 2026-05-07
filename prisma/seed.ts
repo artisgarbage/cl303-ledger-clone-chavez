@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { seedFinancialData } from "./seed-financials";
+import { seedNarratives } from "./seed-narratives";
 
 const prisma = new PrismaClient();
 
@@ -189,6 +190,10 @@ async function main() {
 
   // Seed financial data from XLSX files
   await seedFinancialData();
+
+  // Seed narratives
+  console.log("\nSeeding narratives…");
+  await seedNarratives();
 
   console.log("\nSeed complete. Login at http://localhost:3000/login");
   console.log("Email:    anthony@codelab303.com");

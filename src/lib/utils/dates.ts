@@ -19,7 +19,8 @@ export type PeriodPreset =
   | "trailing_12"
   | "last_month"
   | "last_quarter"
-  | "last_year";
+  | "last_year"
+  | "custom";
 
 export interface DateRange {
   start: Date;
@@ -27,7 +28,7 @@ export interface DateRange {
   label: string;
 }
 
-export function getPeriodRange(preset: PeriodPreset): DateRange {
+export function getPeriodRange(preset: PeriodPreset, customStart?: Date, customEnd?: Date): DateRange {
   const now = new Date();
 
   switch (preset) {
@@ -77,6 +78,20 @@ export function getPeriodRange(preset: PeriodPreset): DateRange {
         start: startOfYear(ly),
         end: endOfYear(ly),
         label: `${ly.getFullYear()}`,
+      };
+    }
+    case "custom": {
+      if (!customStart || !customEnd) {
+        return {
+          start: now,
+          end: now,
+          label: "Custom Range",
+        };
+      }
+      return {
+        start: customStart,
+        end: customEnd,
+        label: formatPeriodLabel(customStart, customEnd),
       };
     }
   }
