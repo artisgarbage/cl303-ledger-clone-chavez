@@ -28,4 +28,4 @@ resources:
     memory: 512Mi
 
 seed:
-  enabled: true # allow seeding in dev via migrate job
+  enabled: false # seed disabled in Helm; run manually via kubectl exec or a separate seed job
