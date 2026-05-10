@@ -2,11 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { RefreshCw, FileText, Plus, ChevronDown, Sparkles, AlertTriangle, X } from "lucide-react";
+import {
+  RefreshCw,
+  FileText,
+  Plus,
+  ChevronDown,
+  Sparkles,
+  AlertTriangle,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/shared/Badge";
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 import { NarrativeType, AccountingBasis } from "@prisma/client";
-import { getPeriodRange, formatPeriodLabel, type PeriodPreset } from "@/lib/utils/dates";
+import {
+  getPeriodRange,
+  formatPeriodLabel,
+  getRelativePeriodLabel,
+  type PeriodPreset,
+} from "@/lib/utils/dates";
 
 interface NarrativeItem {
   id: string;
@@ -91,37 +104,6 @@ const SUGGESTED_QUERIES = [
   "What are the top three financial risks we should be watching?",
 ];
 
-function getRelativePeriodLabel(start: Date, end: Date, type: NarrativeType): string {
-  const startYear = start.getFullYear();
-  const endYear = end.getFullYear();
-  
-  // Full year
-  if (start.getMonth() === 0 && start.getDate() === 1 &&
-      end.getMonth() === 11 && end.getDate() === 31 &&
-      startYear === endYear) {
-    return `Full Year ${startYear}`;
-  }
-  
-  // Quarter
-  if (type === NarrativeType.QUARTERLY_REVIEW) {
-    const quarter = Math.ceil((start.getMonth() + 1) / 3);
-    return `Q${quarter} ${startYear}`;
-  }
-  
-  // Single month
-  if (start.getMonth() === end.getMonth() && startYear === endYear) {
-    return format(start, "MMMM yyyy");
-  }
-  
-  // YTD
-  if (start.getMonth() === 0 && start.getDate() === 1) {
-    return `${format(end, "MMMM yyyy")} YTD`;
-  }
-  
-  // Fall back to formatted range
-  return formatPeriodLabel(start, end);
-}
-
 export default function ReportsPage() {
   const [narratives, setNarratives] = useState<NarrativeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +114,7 @@ export default function ReportsPage() {
   );
   const [customQuestion, setCustomQuestion] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  
+
   // Period controls state
   const [preset, setPreset] = useState<PeriodPreset>("last_month");
   const [basis, setBasis] = useState<AccountingBasis>(AccountingBasis.CASH);
@@ -154,13 +136,13 @@ export default function ReportsPage() {
   const periodRange = getPeriodRange(
     preset,
     customStart ? new Date(customStart) : undefined,
-    customEnd ? new Date(customEnd) : undefined
+    customEnd ? new Date(customEnd) : undefined,
   );
 
   async function generate() {
     // Clear previous errors
     setError(null);
-    
+
     // Validate custom dates
     if (preset === "custom") {
       if (!customStart || !customEnd) {
@@ -174,7 +156,7 @@ export default function ReportsPage() {
         return;
       }
     }
-    
+
     // Validate custom query
     if (selectedType === NarrativeType.CUSTOM) {
       if (!customQuestion.trim()) {
@@ -204,20 +186,26 @@ export default function ReportsPage() {
       });
 
       if (!res.ok) {
-        const errorData = (await res.json().catch(() => ({}))) as { error?: string };
-        
+        const errorData = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+
         if (res.status === 503) {
           setError(
-            "AI narrative generation requires an Anthropic API key. Configure one in Settings → Integrations."
+            "AI narrative generation requires an Anthropic API key. Configure one in Settings → Integrations.",
           );
         } else if (res.status === 400) {
           setError(
-            errorData.error?.includes("No financial data") || errorData.error?.includes("no data")
+            errorData.error?.includes("No financial data") ||
+              errorData.error?.includes("no data")
               ? "No financial data found for this period. Import data for this period first."
-              : errorData.error || "Invalid request."
+              : errorData.error || "Invalid request.",
           );
         } else {
-          setError(errorData.error || "Failed to generate narrative. Please try again.");
+          setError(
+            errorData.error ||
+              "Failed to generate narrative. Please try again.",
+          );
         }
         setGenerating(null);
         return;
@@ -227,7 +215,7 @@ export default function ReportsPage() {
         narrativeId: string;
         content: string;
       };
-      
+
       const newItem: NarrativeItem = {
         id: data.narrativeId,
         type: selectedType,
@@ -238,7 +226,7 @@ export default function ReportsPage() {
         title: `${selectedType.replace(/_/g, " ")} — ${periodRange.label}`,
         basis,
       };
-      
+
       setNarratives([newItem, ...narratives]);
       setExpanded(newItem.id);
     } catch (err) {
@@ -299,7 +287,10 @@ export default function ReportsPage() {
         <div className="p-5 space-y-4">
           {/* Period controls */}
           <div className="space-y-3">
-            <label className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            <label
+              className="text-xs font-semibold"
+              style={{ color: "var(--muted)" }}
+            >
               PERIOD & BASIS
             </label>
             <div className="flex items-center gap-3 flex-wrap">
@@ -315,9 +306,13 @@ export default function ReportsPage() {
                   }}
                 >
                   <span>
-                    {PRESETS.find((p) => p.value === preset)?.label || "Select Period"}
+                    {PRESETS.find((p) => p.value === preset)?.label ||
+                      "Select Period"}
                   </span>
-                  <ChevronDown className="h-3.5 w-3.5" style={{ color: "var(--muted)" }} />
+                  <ChevronDown
+                    className="h-3.5 w-3.5"
+                    style={{ color: "var(--muted)" }}
+                  />
                 </button>
                 {presetDropdownOpen && (
                   <>
@@ -443,7 +438,10 @@ export default function ReportsPage() {
 
           {/* Report type grid */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+            <label
+              className="text-xs font-semibold"
+              style={{ color: "var(--muted)" }}
+            >
               REPORT TYPE
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -562,7 +560,10 @@ export default function ReportsPage() {
                 className="h-4 w-4 shrink-0 mt-0.5"
                 style={{ color: "var(--amber)" }}
               />
-              <p className="flex-1 text-sm" style={{ color: "var(--foreground)" }}>
+              <p
+                className="flex-1 text-sm"
+                style={{ color: "var(--foreground)" }}
+              >
                 {error}
               </p>
               <button
@@ -582,8 +583,10 @@ export default function ReportsPage() {
             }}
             disabled={
               !!generating ||
-              (selectedType === NarrativeType.CUSTOM && !customQuestion.trim()) ||
-              (selectedType === NarrativeType.CUSTOM && customQuestion.length > 500)
+              (selectedType === NarrativeType.CUSTOM &&
+                !customQuestion.trim()) ||
+              (selectedType === NarrativeType.CUSTOM &&
+                customQuestion.length > 500)
             }
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-all disabled:opacity-40"
             style={{
@@ -641,7 +644,10 @@ export default function ReportsPage() {
                   background: "rgba(79,142,247,0.08)",
                 }}
               >
-                <FileText className="h-8 w-8" style={{ color: "var(--accent-blue)" }} />
+                <FileText
+                  className="h-8 w-8"
+                  style={{ color: "var(--accent-blue)" }}
+                />
               </div>
               <div>
                 <p
@@ -663,8 +669,12 @@ export default function ReportsPage() {
           const badgeVariant = TYPE_BADGE[n.type] ?? "default";
           const periodStart = new Date(n.periodStart);
           const periodEnd = new Date(n.periodEnd);
-          const periodLabel = getRelativePeriodLabel(periodStart, periodEnd, n.type);
-          
+          const periodLabel = getRelativePeriodLabel(
+            periodStart,
+            periodEnd,
+            n.type,
+          );
+
           return (
             <div
               key={n.id}
@@ -715,10 +725,7 @@ export default function ReportsPage() {
                         {periodLabel} · {n.basis}
                       </p>
                       <span style={{ color: "var(--muted)" }}>·</span>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--muted)" }}
-                      >
+                      <p className="text-xs" style={{ color: "var(--muted)" }}>
                         Generated{" "}
                         {format(
                           new Date(n.generatedAt),
