@@ -1,0 +1,236 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main # auto-deploy to dev
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+
+env:
+  PROJECT_ID: codelab303-ledger
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app
+  IMAGE: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app/ledger-app
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Guard: fail fast if setup_data is present in the build context
+  # ──────────────────────────────────────────────────────────────────────────
+  security-check:
+    name: Security pre-flight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if setup_data exists in tree
+        run: |
+          if git ls-files setup_data/ | grep -q .; then
+            echo "::error::setup_data/ contains tracked files — run history purge first!"
+            exit 1
+          fi
+
+      - name: Scan for secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Test
+  # ──────────────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: security-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --frozen-lockfile
+
+      - name: Run tests
+        run: npm test -- --reporter=verbose
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build & push image
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build & push
+    runs-on: ubuntu-latest
+    needs: [security-check, test]
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify setup_data not in build context
+        run: |
+          if [ -d setup_data ]; then
+            echo "::error::setup_data directory must not exist at build time"
+            exit 1
+          fi
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/$(gcloud projects describe ${{ env.PROJECT_ID }} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-actions/providers/github"
+          service_account: "ledger-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --tag "${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}" \
+            --tag "${{ env.IMAGE }}:latest-${{ github.ref_name }}" \
+            .
+
+      - name: Verify setup_data NOT in image
+        run: |
+          docker run --rm "${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}" \
+            sh -c 'ls -la /app/setup_data 2>&1 && exit 1 || exit 0'
+
+      - name: Push image
+        run: |
+          docker push "${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}"
+          docker push "${{ env.IMAGE }}:latest-${{ github.ref_name }}"
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Deploy to dev (auto on push to main)
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy-dev:
+    name: Deploy → dev
+    runs-on: ubuntu-latest
+    needs: build
+    environment: dev
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/$(gcloud projects describe ${{ env.PROJECT_ID }} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-actions/providers/github"
+          service_account: "ledger-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ledger-cluster-dev
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Verify required secrets exist in Secret Manager
+        run: |
+          for SECRET in \
+            ledger-database-url-dev \
+            ledger-nextauth-secret-dev \
+            ledger-nextauth-url-dev \
+            ledger-anthropic-api-key-dev \
+            ledger-cron-secret-dev; do
+            gcloud secrets versions access latest --secret="$SECRET" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1 \
+              || { echo "::error::Required secret $SECRET is missing in Secret Manager"; exit 1; }
+          done
+
+      - name: Install / upgrade Helm chart (dev)
+        run: |
+          kubectl create namespace ledger-dev --dry-run=client -o yaml | kubectl apply -f -
+
+          helm upgrade --install ledger-app deploy/helm/ledger-app \
+            --namespace ledger-dev \
+            --values deploy/helm/ledger-app/values.yaml \
+            --values deploy/helm/ledger-app/values-dev.yaml \
+            --set image.tag="${{ needs.build.outputs.image_tag }}" \
+            --atomic \
+            --wait \
+            --timeout 10m
+
+      - name: Smoke test
+        run: |
+          sleep 10
+          kubectl run smoke-test --rm -i --restart=Never \
+            --namespace ledger-dev \
+            --image=curlimages/curl:8 \
+            -- curl -sf http://ledger-app.ledger-dev.svc.cluster.local:3000/api/healthz
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Deploy to prod (manual approval required)
+  # ──────────────────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: Deploy → prod
+    runs-on: ubuntu-latest
+    needs: [build, deploy-dev]
+    environment: prod # requires manual approval in GitHub UI
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/$(gcloud projects describe ${{ env.PROJECT_ID }} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-actions/providers/github"
+          service_account: "ledger-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ledger-cluster-prod
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Verify required secrets exist in Secret Manager
+        run: |
+          for SECRET in \
+            ledger-database-url-prod \
+            ledger-nextauth-secret-prod \
+            ledger-nextauth-url-prod \
+            ledger-anthropic-api-key-prod \
+            ledger-cron-secret-prod; do
+            gcloud secrets versions access latest --secret="$SECRET" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1 \
+              || { echo "::error::Required secret $SECRET is missing — failing closed"; exit 1; }
+          done
+
+      - name: Install / upgrade Helm chart (prod)
+        run: |
+          kubectl create namespace ledger-prod --dry-run=client -o yaml | kubectl apply -f -
+
+          helm upgrade --install ledger-app deploy/helm/ledger-app \
+            --namespace ledger-prod \
+            --values deploy/helm/ledger-app/values.yaml \
+            --values deploy/helm/ledger-app/values-prod.yaml \
+            --set image.tag="${{ needs.build.outputs.image_tag }}" \
+            --atomic \
+            --wait \
+            --timeout 15m
+
+      - name: Smoke test (prod)
+        run: |
+          sleep 15
+          kubectl run smoke-test --rm -i --restart=Never \
+            --namespace ledger-prod \
+            --image=curlimages/curl:8 \
+            -- curl -sf http://ledger-app.ledger-prod.svc.cluster.local:3000/api/healthz

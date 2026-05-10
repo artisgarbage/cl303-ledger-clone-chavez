@@ -1,0 +1,26 @@
+replicaCount: 2
+
+cloudSql:
+  connectionName: "codelab303-ledger:us-central1:ledger-postgres-prod"
+
+serviceAccount:
+  gcpServiceAccountEmail: "ledger-app-prod@codelab303-ledger.iam.gserviceaccount.com"
+
+gateway:
+  hostname: "ledger.codelab303.io"
+  certificateMapId: "" # populate from: terraform -chdir=infra/terraform/envs/prod output certificate_map_id
+
+externalSecret:
+  envSuffix: "prod"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+seed:
+  enabled: false # NEVER seed prod; use /api/admin/ingest

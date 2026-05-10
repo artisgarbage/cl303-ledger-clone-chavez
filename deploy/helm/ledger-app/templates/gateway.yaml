@@ -1,0 +1,31 @@
+# GKE Gateway API — requires gateway.networking.k8s.io CRDs and
+# the GKE cluster to have Gateway API enabled (channel: CHANNEL_STANDARD).
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "ledger-app.fullname" . }}-gateway
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ledger-app.labels" . | nindent 4 }}
+  annotations:
+    # Google-managed certificate map (from Certificate Manager via TF)
+    networking.gke.io/certmap: {{ required "gateway.certificateMapId is required" .Values.gateway.certificateMapId }}
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        options:
+          networking.gke.io/pre-shared-certs: ""  # unused; cert map takes precedence
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Same

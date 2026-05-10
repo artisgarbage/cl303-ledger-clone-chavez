@@ -1,0 +1,105 @@
+# ── Image ────────────────────────────────────────────────────────────────────
+image:
+  repository: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app/ledger-app
+  # tag: REQUIRED — set to the git SHA at deploy time via --set image.tag=<SHA>
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# ── Replicas ─────────────────────────────────────────────────────────────────
+replicaCount: 2
+
+# ── Cloud SQL Proxy ──────────────────────────────────────────────────────────
+cloudSql:
+  # connectionName: REQUIRED — set via --set or values-ENV.yaml
+  # Format: PROJECT:REGION:INSTANCE (e.g. codelab303-ledger:us-central1:ledger-postgres-prod)
+  connectionName: ""
+  proxyImage: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ── Service Account ───────────────────────────────────────────────────────────
+serviceAccount:
+  name: "ledger-app"
+  # GSA email for Workload Identity annotation
+  # Set per-env in values-ENV.yaml
+  gcpServiceAccountEmail: ""
+
+# ── App Runtime ───────────────────────────────────────────────────────────────
+env:
+  # Non-sensitive env vars (secrets come from ExternalSecret below)
+  NODE_ENV: "production"
+  NEXT_TELEMETRY_DISABLED: "1"
+  PORT: "3000"
+
+# ── Resources ────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# ── Probes ───────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /api/healthz
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+  timeoutSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /api/healthz
+    port: 3000
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 5
+
+# ── Service ───────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 3000
+
+# ── Migration Job ─────────────────────────────────────────────────────────────
+migrate:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+
+# ── Seed ─────────────────────────────────────────────────────────────────────
+seed:
+  # NEVER enable in prod — initial data loaded via /api/admin/ingest
+  enabled: false
+
+# ── Gateway / Ingress ────────────────────────────────────────────────────────
+gateway:
+  hostname: "" # set per env
+  certificateMapId: "" # from TF output certificate_map_id
+
+# ── HPA ──────────────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ── PDB ──────────────────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# ── ExternalSecret ───────────────────────────────────────────────────────────
+externalSecret:
+  # Suffix appended to each secret name in Secret Manager
+  # e.g. ledger-database-url-prod
+  envSuffix: "" # set per env: dev or prod
+  refreshInterval: "1h"

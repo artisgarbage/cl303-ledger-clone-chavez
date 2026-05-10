@@ -1,0 +1,59 @@
+# Restrict pod egress to the minimum required set.
+# Ingress is unrestricted (GKE Gateway handles it at the load balancer level).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ledger-app.fullname" . }}-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ledger-app.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "ledger-app.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    # ── DNS ────────────────────────────────────────────────────────────────
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # ── Cloud SQL Auth Proxy (sidecar → private IP, not internet) ─────────
+    # The proxy uses localhost:5432; this rule covers the sidecar → Cloud SQL
+    # private IP which is within the VPC (10.200.0.0/16 range).
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8  # RFC1918; covers Cloud SQL private IP
+      ports:
+        - port: 3307  # Cloud SQL Auth Proxy wire protocol
+
+    # ── GCP APIs (Secret Manager, GCS, Logging, Monitoring) ───────────────
+    # Google APIs are at 199.36.153.4/30 (Private Google Access) and
+    # metadata server at 169.254.169.254/32
+    - to:
+        - ipBlock:
+            cidr: 199.36.153.4/30
+        - ipBlock:
+            cidr: 199.36.153.8/30
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - port: 443
+          protocol: TCP
+
+    # ── Anthropic API (claude.ai / api.anthropic.com) ─────────────────────
+    # Allow HTTPS to Anthropic only. In prod, consider a dedicated HTTPS proxy
+    # with an allowlist instead of open internet egress on 443.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - port: 443
+          protocol: TCP

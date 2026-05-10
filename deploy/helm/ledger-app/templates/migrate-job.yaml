@@ -1,0 +1,78 @@
+# Runs prisma db push (and optionally seed) before every install/upgrade.
+# Using native sidecar (K8s 1.29+) so the proxy terminates when the job completes.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ledger-app.fullname" . }}-migrate-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ledger-app.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrate.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "ledger-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      serviceAccountName: {{ include "ledger-app.serviceAccountName" . }}
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+
+      # Native sidecar (K8s 1.29+): proxy stays up until job container exits
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ .Values.cloudSql.proxyImage }}
+          restartPolicy: Always  # native sidecar flag
+          args:
+            - "--private-ip"
+            - "--port=5432"
+            - {{ include "ledger-app.sqlConnectionName" . | quote }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+          resources:
+            {{- toYaml .Values.cloudSql.resources | nindent 12 }}
+
+      containers:
+        - name: migrate
+          image: {{ include "ledger-app.image" . }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "▶ Waiting for SQL proxy..."
+              until nc -z localhost 5432; do sleep 1; done
+              echo "▶ Running prisma db push..."
+              node_modules/.bin/prisma db push --skip-generate
+              if [ "${SEED_ENABLED}" = "true" ]; then
+                echo "▶ Running seed..."
+                node_modules/.bin/tsx prisma/seed.ts
+              fi
+              echo "✓ Migration complete."
+          env:
+            - name: SEED_ENABLED
+              value: {{ .Values.seed.enabled | quote }}
+          envFrom:
+            - secretRef:
+                name: ledger-app-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

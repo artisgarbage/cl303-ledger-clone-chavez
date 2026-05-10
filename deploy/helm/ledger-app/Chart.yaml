@@ -1,0 +1,12 @@
+apiVersion: v2
+name: ledger-app
+description: Ledger financial intelligence platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - financial
+  - nextjs
+  - ledger
+maintainers:
+  - name: codelab303

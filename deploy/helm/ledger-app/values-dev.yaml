@@ -1,0 +1,31 @@
+replicaCount: 1
+
+cloudSql:
+  connectionName: "codelab303-ledger:us-central1:ledger-postgres-dev"
+
+serviceAccount:
+  gcpServiceAccountEmail: "ledger-app-dev@codelab303-ledger.iam.gserviceaccount.com"
+
+gateway:
+  hostname: "ledger-dev.codelab303.io"
+  certificateMapId: "" # populate from: terraform -chdir=infra/terraform/envs/dev output certificate_map_id
+
+externalSecret:
+  envSuffix: "dev"
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+seed:
+  enabled: true # allow seeding in dev via migrate job

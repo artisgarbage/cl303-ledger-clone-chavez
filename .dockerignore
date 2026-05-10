@@ -11,12 +11,25 @@ out
 .env.*
 !.env.example
 
+# Financial data — NEVER include in image
+setup_data/
+setup_data/**
+*.xlsx
+*.csv
+
 # Dev tools
 .git
 .gitignore
 .eslintrc*
 README.md
 *.md
+
+# Docs / tickets / vault — not needed at runtime
+docs/
+tickets/
+.vault/
+infra/
+deploy/
 
 # Prisma dev artifacts
 prisma/*.db
@@ -31,3 +44,6 @@ prisma/migrations/.gitkeep
 # OS
 .DS_Store
 Thumbs.db
+
+# CI
+.github/

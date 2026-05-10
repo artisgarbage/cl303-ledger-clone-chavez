@@ -1,0 +1,31 @@
+repos:
+  # Detect secrets / credentials
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # Block financial data and sensitive env files
+  - repo: local
+    hooks:
+      - id: no-financial-data
+        name: Block financial data files
+        language: fail
+        entry: "Financial data files (*.xlsx, *.csv, setup_data/**) must never be committed."
+        files: "(setup_data/|\\.(xlsx|csv)$)"
+
+      - id: no-env-files
+        name: Block .env files (except .env.local.example)
+        language: fail
+        entry: ".env files must never be committed. Store secrets in Secret Manager."
+        files: "^\\.env(?!\\.local\\.example$)"
+
+  # Standard hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]

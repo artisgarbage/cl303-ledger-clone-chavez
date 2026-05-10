@@ -13,7 +13,8 @@ Before writing any code:
 1. Read `CLAUDE.md`, `AGENTS.md`, and anything under `.vault/directives/` — cl303 automation is active and there are role directives that constrain how I want changes made.
 2. Read `Dockerfile`, `docker-entrypoint.sh`, `docker-compose.yml`, `next.config.ts`, `prisma/schema.prisma`, `.env.local.example`, and `.env.docker` so you know what the runtime actually needs.
 3. **Important per `AGENTS.md`:** this version of Next.js has breaking changes vs. your training data. Skim `node_modules/next/dist/docs/` for anything deployment-relevant (standalone output, runtime, env handling) before assuming behavior.
-4. Then produce a short plan (file tree + decisions) and wait for me to approve it before writing files.
+4. Read the **Sensitive data handling** section below carefully — it is not optional and changes how you build the image, the chart, and the IAM bindings.
+5. Then produce a short plan (file tree + decisions) and wait for me to approve it before writing files.
 
 ## What the app is (so you can size things right)
 
@@ -21,7 +22,59 @@ Before writing any code:
 - Entrypoint runs `prisma db push --skip-generate` and seeds before `next start`. Treat that as a one-shot **migration job**, not something to run on every pod start in prod — split it out.
 - Postgres 16. Schema in `prisma/schema.prisma` (User, Account, Session, Company, etc.).
 - Required runtime env: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ANTHROPIC_API_KEY`, `CRON_SECRET`. Optional: `HARVEST_ACCESS_TOKEN`, `HARVEST_ACCOUNT_ID`, `FORECAST_ACCOUNT_ID`.
-- **Security task #0:** `.env.docker` currently has a real-looking Anthropic key committed. Flag this in your plan and include steps to rotate it and scrub it from git history (`git filter-repo` or BFG) — do not proceed with deployment work until I've confirmed rotation.
+- `setup_data/` contains **real codelab303 LLC financials** (P&L exports, more files will be added over time). Treat this directory and everything in it as the highest-sensitivity data in the repo. It is **not test fixtures** — leakage = real-world harm.
+
+## Security task #0 — blockers (do these before any deployment work)
+
+These are pre-flight remediations. Stop and confirm with me after each one before moving on.
+
+1. **Rotate the leaked Anthropic key.** `.env.docker` has a real-looking `sk-ant-…` value committed. Revoke it in the Anthropic console, issue a new one, and only ever store the new one in Secret Manager.
+2. **Purge sensitive files from git history.** `setup_data/*.xlsx` is currently tracked (`git ls-files setup_data/` returns hits) and `.env.docker` has been committed. Use `git filter-repo` (preferred) or BFG to remove `setup_data/` and `.env.docker` from all refs, force-push to all remotes, invalidate any forks, and rotate every credential that has ever appeared in those files. Document the exact commands you ran in `docs/deploy/bootstrap.md`.
+3. **Update `.gitignore`** to exclude `setup_data/`, `setup_data/**`, `.env`, `.env.*` (keep `!.env.local.example`), and any future `*.xlsx`/`*.csv` financial dumps. Add a pre-commit hook (or CI check) that fails on any tracked path matching those globs.
+4. **Update `.dockerignore`** to exclude `setup_data/`, `setup_data/**`, `.env`, `.env.*`, `prisma/seed-financials.ts` if it embeds data, and anything under `tickets/` or `.vault/` that isn't needed at runtime. Verify by running `docker build` and then `docker run --rm <image> sh -c 'ls -la /app && ls -la /app/setup_data 2>&1 || true'` — `setup_data` must not exist in the image.
+5. **Audit current image and registry.** If any image already pushed to a registry contains `setup_data/`, treat it as a leak: delete the tag/digest, flush caches, and note it in the runbook.
+
+Do not start writing Terraform or Helm until items 1–4 are done and I've confirmed.
+
+## Sensitive data handling (codelab303 financials)
+
+This is non-negotiable and shapes the design. Apply it to everything you build:
+
+**Never in the image, never in the chart, never in CI logs.**
+- The runtime container must not contain `setup_data/` or any financial file. Confirm with the verification command above.
+- Helm values files, Terraform tfvars, and CI workflows must not reference paths inside `setup_data/`. No `kubectl cp`, no `gsutil cp` from a developer laptop into a running pod as part of the documented flow.
+- CI workflows must mask any env that could carry financial content and must not `cat` files from `setup_data/` for "debugging." Add a CI step that fails if `setup_data/` is present in the build context.
+
+**Storage at rest (when this data needs to live in GCP).**
+- Stand up a dedicated **GCS bucket** per environment (e.g. `codelab303-ledger-financials-prod`) with: uniform bucket-level access on, public access prevention enforced, **CMEK** using a Cloud KMS key in the same region, object versioning on, lifecycle rule for noncurrent versions, retention policy if compliance requires it, and **Data Access audit logs** enabled for `storage.objects.{get,create,delete,list}`.
+- Bucket IAM: only a dedicated GSA (e.g. `ledger-financials-reader@…`) gets `roles/storage.objectViewer` scoped to that bucket. No project-level grants. No `allUsers`, no `allAuthenticatedUsers`, ever.
+- App pods access the bucket via **Workload Identity** binding to that GSA — no keys, no broad `roles/storage.admin`. Document the KSA→GSA binding explicitly.
+- The Cloud SQL instance that stores any data derived from these files uses **CMEK** with the same KMS key family, private IP only, and `cloudsql.iam_authentication=on`. Backups are CMEK-encrypted; PITR enabled in prod.
+- KMS key has rotation enabled (e.g. 90 days) and `roles/cloudkms.cryptoKeyEncrypterDecrypter` granted only to the bucket service agent and the Cloud SQL service agent.
+
+**Loading data into the platform.**
+- Prod must not be seeded from local `setup_data/` files. Choose one of these patterns and recommend with reasoning:
+  - (a) Operator uploads file to the locked-down GCS bucket; an authenticated admin-only endpoint or a one-shot Job (image pulls the file via Workload Identity, parses, writes to DB, deletes the local copy) ingests it.
+  - (b) Direct authenticated upload through an admin-only route that streams to GCS, then triggers ingest.
+- Whichever you pick: the upload/ingest path requires NextAuth admin role, rate-limits, virus scan if files come from outside the org, and writes an audit row (who, when, file hash, row counts) to a dedicated `IngestAudit` table. The raw file is **never** logged.
+- Local dev can keep using `setup_data/` from a developer's working tree, but only because that tree is gitignored. Document this clearly.
+
+**Egress and AI.**
+- The Anthropic narrative feature must not send raw financial rows or PII to the API by default. Either redact/aggregate before the prompt, or gate the feature behind an explicit per-tenant opt-in flag stored in the DB. Document what is and isn't sent.
+- Add `NetworkPolicy` that restricts app-pod egress to: Cloud SQL Auth Proxy, Secret Manager, the financials bucket, Anthropic's API hostname, and DNS. Block everything else by default.
+
+**Access controls in the running app.**
+- All routes that read or list financial data require an authenticated admin session. Add server-side authorization checks; do not rely on UI hiding. If `/api/healthz` is added for probes, it must return 200 with no business data.
+- Add structured audit logging for any read/write of financial entities, with user id, action, entity, and a request id — but never the row contents.
+
+**Backups and disposal.**
+- Bucket and DB backups inherit CMEK and the same IAM scope. Document the restore procedure and a destroy procedure (key destruction is the kill switch).
+- The runbook must include: how to revoke a user's access, how to rotate the KMS key, how to wipe a tenant's data, and how to handle a suspected leak (rotate keys, invalidate sessions, audit-log review query).
+
+**CI and developer hygiene.**
+- Add `gitleaks` (or `trufflehog`) to CI, scanning the diff and full history weekly. Fail the build on hits.
+- Add a `pre-commit` config that blocks commits adding files under `setup_data/` or matching `*.xlsx`, `*.csv` outside of allowlisted dirs.
+- The deploy workflow must fail closed if any required Secret Manager secret is missing — never fall back to a default.
 
 ## Decisions to confirm (edit these before pasting if you want different defaults)
 
@@ -50,10 +103,13 @@ infra/
       project-services/   # enable required APIs
       network/            # VPC, subnets, NAT, private service access for Cloud SQL
       gke/                # Autopilot cluster + Workload Identity
-      cloud-sql/          # Postgres 16, private IP, automated backups, IAM auth
+      cloud-sql/          # Postgres 16, private IP, CMEK, IAM auth, PITR (prod)
+      kms/                # KMS keyring + CMEK keys, rotation enabled
+      financials-bucket/  # GCS bucket for codelab303 financials: CMEK, UBLA, PAP, audit logs, versioning
       artifact-registry/
       secret-manager/     # secret containers (values populated out-of-band)
       iam/                # GSAs, KSA bindings, WIF pool/provider for GitHub Actions
+      audit-logging/      # Data Access logs for storage + cloudsql + secretmanager
       dns-cert/           # managed zone records + cert
     versions.tf            # pin terraform >= 1.9, google provider, helm/kubernetes providers
 deploy/
@@ -84,13 +140,15 @@ docs/
   deploy/
     README.md              # one-page operator runbook
     bootstrap.md           # first-time setup (TF state bucket, WIF, secrets seeding)
-    runbook.md             # rollback, scale, debug, rotate secrets
+    runbook.md             # rollback, scale, debug, rotate secrets, rotate KMS, wipe data
     architecture.md        # diagram + data flow + threat model summary
+    data-handling.md       # how financials enter, where they live, who can read them, audit
+    incident-response.md   # suspected leak playbook
 ```
 
 ## Hard requirements
 
-1. **No secrets in code or values files.** All sensitive values come from Secret Manager via CSI; values files reference secret *names*, never values. The migration Job and the app Deployment both pull from the same source of truth.
+1. **No secrets and no financial data in code, images, or values files.** All sensitive values come from Secret Manager via CSI; values files reference secret *names*, never values. Financial files live only in the locked-down GCS bucket. The migration Job and the app Deployment both pull from the same source of truth.
 2. **Migrations as a Helm hook**, not an init container that runs on every pod. Use `helm.sh/hook: pre-install,pre-upgrade` with `hook-weight` and `hook-delete-policy: before-hook-creation`. Strip the seed step from the prod path or make it idempotent and gated by an env flag — confirm with me before deciding.
 3. **Workload Identity Federation** for GitHub Actions auth. No service account JSON keys anywhere. Document the WIF principal and the conditions on the binding.
 4. **Cloud SQL access via the Auth Proxy sidecar** with IAM database authentication where feasible; otherwise password from Secret Manager. Private IP only — no public IP on the instance.

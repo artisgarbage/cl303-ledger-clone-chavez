@@ -30,8 +30,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit real values; only .env.local.example is allowed
+.env
+.env.*
+!.env.local.example
+
+# Financial data — real company P&L exports, never commit
+setup_data/
+setup_data/**
+*.xlsx
+*.csv
 
 # vercel
 .vercel

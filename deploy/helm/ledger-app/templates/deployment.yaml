@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ledger-app.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ledger-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ledger-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ledger-app.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Force pod rollout on secret rotation
+        checksum/externalsecret: {{ include (print $.Template.BasePath "/externalsecret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "ledger-app.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      terminationGracePeriodSeconds: 60
+
+      containers:
+        # ── Application ────────────────────────────────────────────────────
+        - name: ledger-app
+          image: {{ include "ledger-app.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Skip docker-entrypoint.sh (no migration in pod); just run next start
+          command: ["node_modules/.bin/next", "start"]
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            - name: FINANCIALS_BUCKET_NAME
+              value: "codelab303-ledger-financials-{{ .Values.externalSecret.envSuffix }}"
+          envFrom:
+            - secretRef:
+                name: ledger-app-secrets
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Next.js writes to .next/cache at runtime
+            capabilities:
+              drop: ["ALL"]
+
+        # ── Cloud SQL Auth Proxy ───────────────────────────────────────────
+        - name: cloud-sql-proxy
+          image: {{ .Values.cloudSql.proxyImage }}
+          args:
+            - "--private-ip"
+            - "--port=5432"
+            - {{ include "ledger-app.sqlConnectionName" . | quote }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.cloudSql.resources | nindent 12 }}
