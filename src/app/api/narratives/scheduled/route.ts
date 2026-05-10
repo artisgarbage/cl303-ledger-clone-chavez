@@ -1,13 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { generateNarrative, type FinancialSnapshot } from '@/lib/narrative-builder';
-import { NarrativeType } from '@prisma/client';
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
+import {
+  generateNarrative,
+  type FinancialSnapshot,
+} from "@/lib/narrative-builder";
+import { NarrativeType } from "@prisma/client";
 
 interface GenerationResult {
   type: NarrativeType;
   periodStart: Date;
   periodEnd: Date;
-  status: 'ok' | 'skipped' | 'error';
+  status: "ok" | "skipped" | "error";
   error?: string;
 }
 
@@ -17,19 +21,24 @@ interface GenerationResult {
  */
 export async function GET(req: NextRequest) {
   // Verify CRON_SECRET header
-  const authHeader = req.headers.get('authorization');
+  const authHeader = req.headers.get("authorization");
   const expectedSecret = process.env.CRON_SECRET;
 
   if (!expectedSecret) {
     return NextResponse.json(
-      { error: 'CRON_SECRET not configured' },
-      { status: 500 }
+      { error: "CRON_SECRET not configured" },
+      { status: 500 },
     );
   }
 
-  const providedSecret = authHeader?.replace('Bearer ', '');
-  if (providedSecret !== expectedSecret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const providedSecret = authHeader?.replace("Bearer ", "") ?? "";
+  const providedBuf = Buffer.from(providedSecret);
+  const expectedBuf = Buffer.from(expectedSecret);
+  if (
+    providedBuf.length !== expectedBuf.length ||
+    !crypto.timingSafeEqual(providedBuf, expectedBuf)
+  ) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const results: GenerationResult[] = [];
@@ -64,23 +73,27 @@ export async function GET(req: NextRequest) {
     }
 
     const summary = {
-      generated: results.filter((r) => r.status === 'ok').length,
-      skipped: results.filter((r) => r.status === 'skipped').length,
-      errors: results.filter((r) => r.status === 'error').map((r) => r.error || 'Unknown error'),
+      generated: results.filter((r) => r.status === "ok").length,
+      skipped: results.filter((r) => r.status === "skipped").length,
+      errors: results
+        .filter((r) => r.status === "error")
+        .map((r) => r.error || "Unknown error"),
     };
 
     // Log results
     results.forEach((r) => {
-      const periodStr = `${r.periodStart.toISOString().split('T')[0]}→${r.periodEnd.toISOString().split('T')[0]}`;
-      console.log(`[narrative] ${r.type} ${periodStr} — ${r.status}${r.error ? `: ${r.error}` : ''}`);
+      const periodStr = `${r.periodStart.toISOString().split("T")[0]}→${r.periodEnd.toISOString().split("T")[0]}`;
+      console.log(
+        `[narrative] ${r.type} ${periodStr} — ${r.status}${r.error ? `: ${r.error}` : ""}`,
+      );
     });
 
     return NextResponse.json(summary);
   } catch (error) {
-    console.error('Scheduled narrative generation error:', error);
+    console.error("Scheduled narrative generation error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
     );
   }
 }
@@ -90,17 +103,25 @@ export async function GET(req: NextRequest) {
  */
 async function generateMonthly(
   companyId: string,
-  now: Date
+  now: Date,
 ): Promise<GenerationResult> {
   const priorMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const periodStart = new Date(priorMonth.getFullYear(), priorMonth.getMonth(), 1);
-  const periodEnd = new Date(priorMonth.getFullYear(), priorMonth.getMonth() + 1, 0);
+  const periodStart = new Date(
+    priorMonth.getFullYear(),
+    priorMonth.getMonth(),
+    1,
+  );
+  const periodEnd = new Date(
+    priorMonth.getFullYear(),
+    priorMonth.getMonth() + 1,
+    0,
+  );
 
   return generateNarrativeForPeriod(
     companyId,
-    'MONTHLY_SUMMARY',
+    "MONTHLY_SUMMARY",
     periodStart,
-    periodEnd
+    periodEnd,
   );
 }
 
@@ -109,7 +130,7 @@ async function generateMonthly(
  */
 async function generateQuarterly(
   companyId: string,
-  now: Date
+  now: Date,
 ): Promise<GenerationResult> {
   const currentQuarter = Math.floor(now.getMonth() / 3);
   const priorQuarter = currentQuarter === 0 ? 3 : currentQuarter - 1;
@@ -120,9 +141,9 @@ async function generateQuarterly(
 
   return generateNarrativeForPeriod(
     companyId,
-    'QUARTERLY_REVIEW',
+    "QUARTERLY_REVIEW",
     periodStart,
-    periodEnd
+    periodEnd,
   );
 }
 
@@ -131,7 +152,7 @@ async function generateQuarterly(
  */
 async function generateAnnual(
   companyId: string,
-  now: Date
+  now: Date,
 ): Promise<GenerationResult> {
   const priorYear = now.getFullYear() - 1;
   const periodStart = new Date(priorYear, 0, 1);
@@ -139,9 +160,9 @@ async function generateAnnual(
 
   return generateNarrativeForPeriod(
     companyId,
-    'YEAR_OVER_YEAR',
+    "YEAR_OVER_YEAR",
     periodStart,
-    periodEnd
+    periodEnd,
   );
 }
 
@@ -152,7 +173,7 @@ async function generateNarrativeForPeriod(
   companyId: string,
   type: NarrativeType,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
 ): Promise<GenerationResult> {
   try {
     // Check if narrative already exists
@@ -166,7 +187,7 @@ async function generateNarrativeForPeriod(
     });
 
     if (existing) {
-      return { type, periodStart, periodEnd, status: 'skipped' };
+      return { type, periodStart, periodEnd, status: "skipped" };
     }
 
     // Fetch financial periods
@@ -179,7 +200,7 @@ async function generateNarrativeForPeriod(
       include: {
         lineItems: {
           where: { isTotal: false },
-          orderBy: { amount: 'desc' },
+          orderBy: { amount: "desc" },
           take: 20,
         },
         company: {
@@ -193,8 +214,8 @@ async function generateNarrativeForPeriod(
         type,
         periodStart,
         periodEnd,
-        status: 'error',
-        error: 'No financial data found',
+        status: "error",
+        error: "No financial data found",
       };
     }
 
@@ -207,7 +228,8 @@ async function generateNarrativeForPeriod(
         totalOpEx: acc.totalOpEx + period.totalOpEx,
         netIncome: acc.netIncome + period.netIncome,
         cogsPayroll: (acc.cogsPayroll || 0) + (period.cogsPayroll || 0),
-        cogsContractors: (acc.cogsContractors || 0) + (period.cogsContractors || 0),
+        cogsContractors:
+          (acc.cogsContractors || 0) + (period.cogsContractors || 0),
         cogsSoftware: (acc.cogsSoftware || 0) + (period.cogsSoftware || 0),
       }),
       {
@@ -219,13 +241,17 @@ async function generateNarrativeForPeriod(
         cogsPayroll: 0,
         cogsContractors: 0,
         cogsSoftware: 0,
-      }
+      },
     );
 
     const grossMargin =
-      aggregated.totalRevenue > 0 ? aggregated.grossProfit / aggregated.totalRevenue : 0;
+      aggregated.totalRevenue > 0
+        ? aggregated.grossProfit / aggregated.totalRevenue
+        : 0;
     const netMargin =
-      aggregated.totalRevenue > 0 ? aggregated.netIncome / aggregated.totalRevenue : 0;
+      aggregated.totalRevenue > 0
+        ? aggregated.netIncome / aggregated.totalRevenue
+        : 0;
 
     const company = periods[0].company;
     const settings = company.settings;
@@ -242,8 +268,8 @@ async function generateNarrativeForPeriod(
       }));
 
     // Prior periods for YoY
-    let priorPeriods: FinancialSnapshot['priorPeriods'] = undefined;
-    if (type === 'YEAR_OVER_YEAR') {
+    let priorPeriods: FinancialSnapshot["priorPeriods"] = undefined;
+    if (type === "YEAR_OVER_YEAR") {
       const priorYearStart = new Date(periodStart);
       priorYearStart.setFullYear(priorYearStart.getFullYear() - 1);
       const priorYearEnd = new Date(periodEnd);
@@ -264,7 +290,7 @@ async function generateNarrativeForPeriod(
             netIncome: acc.netIncome + p.netIncome,
             grossProfit: acc.grossProfit + p.grossProfit,
           }),
-          { totalRevenue: 0, netIncome: 0, grossProfit: 0 }
+          { totalRevenue: 0, netIncome: 0, grossProfit: 0 },
         );
 
         priorPeriods = [
@@ -323,14 +349,14 @@ async function generateNarrativeForPeriod(
       },
     });
 
-    return { type, periodStart, periodEnd, status: 'ok' };
+    return { type, periodStart, periodEnd, status: "ok" };
   } catch (error) {
     return {
       type,
       periodStart,
       periodEnd,
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      status: "error",
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

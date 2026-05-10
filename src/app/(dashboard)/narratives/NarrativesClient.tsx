@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { NarrativeType } from '@prisma/client';
+import { useState } from "react";
+import { NarrativeType } from "@prisma/client";
+import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 
 interface Narrative {
   id: string;
@@ -18,28 +19,29 @@ interface NarrativesClientProps {
 }
 
 const NARRATIVE_TYPE_LABELS: Record<NarrativeType, string> = {
-  MONTHLY_SUMMARY: 'Monthly Summary',
-  QUARTERLY_REVIEW: 'Quarterly Review',
-  YEAR_OVER_YEAR: 'Year-over-Year',
-  PROJECT_PROFITABILITY: 'Project Profitability',
-  MARGIN_ANALYSIS: 'Margin Analysis',
-  CASH_VS_ACCRUAL: 'Cash vs. Accrual',
-  CUSTOM: 'Custom',
+  MONTHLY_SUMMARY: "Monthly Summary",
+  QUARTERLY_REVIEW: "Quarterly Review",
+  YEAR_OVER_YEAR: "Year-over-Year",
+  PROJECT_PROFITABILITY: "Project Profitability",
+  MARGIN_ANALYSIS: "Margin Analysis",
+  CASH_VS_ACCRUAL: "Cash vs. Accrual",
+  CUSTOM: "Custom",
 };
 
 export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
-  const [selectedType, setSelectedType] = useState<NarrativeType>('MONTHLY_SUMMARY');
+  const [selectedType, setSelectedType] =
+    useState<NarrativeType>("MONTHLY_SUMMARY");
   const [periodStart, setPeriodStart] = useState(() => {
     // Default to first day of prior month
     const now = new Date();
     const priorMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return priorMonth.toISOString().split('T')[0];
+    return priorMonth.toISOString().split("T")[0];
   });
   const [periodEnd, setPeriodEnd] = useState(() => {
     // Default to last day of prior month
     const now = new Date();
     const priorMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-    return priorMonth.toISOString().split('T')[0];
+    return priorMonth.toISOString().split("T")[0];
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedNarrative, setGeneratedNarrative] = useState<{
@@ -48,7 +50,9 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
     generatedAt: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expandedNarrativeId, setExpandedNarrativeId] = useState<string | null>(null);
+  const [expandedNarrativeId, setExpandedNarrativeId] = useState<string | null>(
+    null,
+  );
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -56,9 +60,9 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
     setGeneratedNarrative(null);
 
     try {
-      const response = await fetch('/api/narratives/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/narratives/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: selectedType,
           periodStart: new Date(periodStart).toISOString(),
@@ -68,13 +72,15 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate narrative');
+        throw new Error(errorData.error || "Failed to generate narrative");
       }
 
       const data = await response.json();
       setGeneratedNarrative(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -95,7 +101,10 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="type"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Type
             </label>
             <select
@@ -115,7 +124,10 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="periodStart" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="periodStart"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Period Start
               </label>
               <input
@@ -129,7 +141,10 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
             </div>
 
             <div>
-              <label htmlFor="periodEnd" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="periodEnd"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Period End
               </label>
               <input
@@ -173,7 +188,7 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
                 Generating...
               </>
             ) : (
-              'Generate'
+              "Generate"
             )}
           </button>
         </div>
@@ -190,13 +205,12 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
               {generatedNarrative.title}
             </h3>
             <p className="text-sm text-green-700 mb-4">
-              Generated {new Date(generatedNarrative.generatedAt).toLocaleString()}
+              Generated{" "}
+              {new Date(generatedNarrative.generatedAt).toLocaleString()}
             </p>
-            <div
+            <MarkdownRenderer
+              content={generatedNarrative.content}
               className="prose prose-sm max-w-none text-gray-800"
-              dangerouslySetInnerHTML={{
-                __html: formatMarkdown(generatedNarrative.content),
-              }}
             />
           </div>
         )}
@@ -221,32 +235,33 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
                       {narrative.title || NARRATIVE_TYPE_LABELS[narrative.type]}
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      {NARRATIVE_TYPE_LABELS[narrative.type]} •{' '}
-                      {new Date(narrative.periodStart).toLocaleDateString()} -{' '}
+                      {NARRATIVE_TYPE_LABELS[narrative.type]} •{" "}
+                      {new Date(narrative.periodStart).toLocaleDateString()} -{" "}
                       {new Date(narrative.periodEnd).toLocaleDateString()}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Generated {new Date(narrative.generatedAt).toLocaleDateString()}
+                      Generated{" "}
+                      {new Date(narrative.generatedAt).toLocaleDateString()}
                     </p>
                   </div>
                   <button
                     onClick={() =>
                       setExpandedNarrativeId(
-                        expandedNarrativeId === narrative.id ? null : narrative.id
+                        expandedNarrativeId === narrative.id
+                          ? null
+                          : narrative.id,
                       )
                     }
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium ml-4"
                   >
-                    {expandedNarrativeId === narrative.id ? 'Hide' : 'View'}
+                    {expandedNarrativeId === narrative.id ? "Hide" : "View"}
                   </button>
                 </div>
 
                 {expandedNarrativeId === narrative.id && (
-                  <div
-                    className="mt-4 pt-4 border-t border-gray-200 prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{
-                      __html: formatMarkdown(narrative.content),
-                    }}
+                  <MarkdownRenderer
+                    content={narrative.content}
+                    className="mt-4 pt-4 border-t border-gray-200"
                   />
                 )}
               </div>
@@ -256,30 +271,4 @@ export function NarrativesClient({ recentNarratives }: NarrativesClientProps) {
       </div>
     </div>
   );
-}
-
-/**
- * Simple markdown-to-HTML formatter
- * Supports: headings, bold, lists, paragraphs
- */
-function formatMarkdown(markdown: string): string {
-  let html = markdown;
-
-  // Headings
-  html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mt-4 mb-2">$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-6 mb-3">$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-6 mb-4">$1</h1>');
-
-  // Bold
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Bullet lists
-  html = html.replace(/^\* (.*$)/gim, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul class="list-disc pl-6 my-2">$1</ul>');
-
-  // Paragraphs
-  html = html.replace(/\n\n/g, '</p><p class="my-2">');
-  html = `<p class="my-2">${html}</p>`;
-
-  return html;
 }
