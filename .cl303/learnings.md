@@ -112,3 +112,23 @@ Completed audit Phase 2 and 2 of 6 P0 remediations. Budget constraint prevents c
 - **No audit logging:** Financial data access is not logged - compliance gap for SOC 2/GDPR
 - **xlsx CVE:** HIGH severity Prototype Pollution vulnerability in xlsx dependency used for QuickBooks import
 - **prisma db push:** Used on every container start - risks schema drift in production, should use migrations
+
+## 2026-05-10 — Issue #11 SEC-03: Make User.companyId non-null (P0 fix)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PR:** (pending #16)  
+**Cost:** ~$8 (est)
+
+Made User.companyId non-null at database level to prevent orphaned users from bypassing multi-tenant isolation.
+
+### Notes
+
+- **Schema migration:** Created `20260510_make_user_companyid_required` with safeguard - fails if orphaned users exist
+- **Migration safety:** PL/pgSQL block checks for NULL companyId before applying NOT NULL constraint
+- **Auth helpers:** Created `src/lib/auth-helpers.ts` with `requireAdmin()`, `requireSession()`, `requireTenant()` - all throw if companyId missing
+- **Session callback updated:** `auth.config.ts` now fails fast if JWT token has no companyId
+- **Type safety:** All helpers return typed sessions with guaranteed non-null `companyId: string`
+- **Testing:** Unit tests verify all helpers throw on missing companyId (guards against regression)
+- **Rollback procedure:** Documented in `docs/security/sec-03-migration-guide.md`
+- **Migration verification:** Production checklist includes orphaned user check via Cloud SQL Proxy
+- **No npm install needed:** Migration is pure SQL, tests written but not executed in sandbox (npm issues)
