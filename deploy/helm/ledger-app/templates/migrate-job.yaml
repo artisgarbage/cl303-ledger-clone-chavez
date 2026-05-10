@@ -50,21 +50,26 @@ spec:
             - -c
             - |
               set -e
+              echo "▶ Fetching DATABASE_URL from Secret Manager..."
+              TOKEN=$(wget -qO- --header "Metadata-Flavor: Google" \
+                "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | \
+                node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token))")
+              DATABASE_URL=$(wget -qO- \
+                --header "Authorization: Bearer $TOKEN" \
+                "https://secretmanager.googleapis.com/v1/projects/${GCP_PROJECT}/secrets/${DB_SECRET_NAME}/versions/latest:access" | \
+                node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{ const j=JSON.parse(d); console.log(Buffer.from(j.payload.data,'base64').toString()); })")
               echo "▶ Waiting for SQL proxy..."
               until nc -z localhost 5432; do sleep 1; done
               echo "▶ Running prisma db push..."
               node_modules/.bin/prisma db push --url "$DATABASE_URL"
-              if [ "${SEED_ENABLED}" = "true" ]; then
-                echo "▶ Running seed..."
-                node_modules/.bin/tsx prisma/seed.ts
-              fi
               echo "✓ Migration complete."
           env:
             - name: SEED_ENABLED
               value: {{ .Values.seed.enabled | quote }}
-          envFrom:
-            - secretRef:
-                name: ledger-app-secrets
+            - name: GCP_PROJECT
+              value: {{ .Values.externalSecret.projectId | default "codelab303-ledger" | quote }}
+            - name: DB_SECRET_NAME
+              value: ledger-database-url-{{ .Values.externalSecret.envSuffix }}
           resources:
             requests:
               cpu: 100m
