@@ -1,41 +1,89 @@
 /**
- * Structured audit logging for financial data access/mutations.
- *
- * Rules:
- *  - Log WHO, WHEN, WHAT action, on WHICH entity, with a request-id
- *  - NEVER log row contents, PII beyond user id, or raw financial values
- *  - All output goes to stdout as structured JSON (captured by Cloud Logging)
+ * Audit logging for financial data access and mutations.
+ * 
+ * Every read, create, update, or delete of sensitive financial resources
+ * is logged to the AccessAudit table for compliance (SOC 2, GDPR) and
+ * forensic investigation.
+ * 
+ * @module lib/audit
  */
 
-type AuditAction =
-  | "ingest.start"
-  | "ingest.success"
-  | "ingest.failed"
-  | "financial.read"
-  | "financial.list"
-  | "narrative.generate"
-  | "narrative.read"
-  | "user.invite"
-  | "user.roleChange"
-  | "settings.update";
+import { prisma } from "./prisma";
 
-interface AuditEntry {
-  level: "AUDIT";
-  action: AuditAction;
+export type AuditAction = "read" | "create" | "update" | "delete";
+
+export type AuditResource =
+  | "narrative"
+  | "period"
+  | "project"
+  | "people"
+  | "import"
+  | "user";
+
+export interface LogAccessParams {
   userId: string;
   companyId: string;
-  entity?: string;
-  entityId?: string;
-  requestId?: string;
-  /** Safe metadata only — no row contents */
-  meta?: Record<string, string | number | boolean>;
+  action: AuditAction;
+  resource: AuditResource;
+  resourceId?: string;
+  metadata?: Record<string, any>;
 }
 
-export function auditLog(entry: AuditEntry): void {
-  const record = {
-    ...entry,
-    timestamp: new Date().toISOString(),
+/**
+ * Log an access event to the audit trail.
+ * 
+ * This function is fire-and-forget — it does not throw or return errors.
+ * Audit failures are logged to console but do not block the operation.
+ * 
+ * @param params - Audit log parameters
+ */
+export async function logAccess(params: LogAccessParams): Promise<void> {
+  try {
+    await prisma.accessAudit.create({
+      data: {
+        userId: params.userId,
+        companyId: params.companyId,
+        action: params.action,
+        resource: params.resource,
+        resourceId: params.resourceId,
+        metadata: params.metadata,
+      },
+    });
+  } catch (error) {
+    // Audit failures must not block the operation. Log and continue.
+    console.error("[audit] Failed to log access:", error);
+  }
+}
+
+/**
+ * Helper: extract metadata from NextRequest for audit logs.
+ * 
+ * @param req - Next.js request object
+ * @returns Metadata object with routePath, method, ipAddress, userAgent
+ */
+export function extractRequestMetadata(req: {
+  nextUrl?: { pathname: string };
+  method?: string;
+  headers?: Headers;
+  url?: string;
+}): Record<string, string> {
+  const pathname =
+    req.nextUrl?.pathname || (req.url ? new URL(req.url).pathname : "unknown");
+  const method = req.method || "GET";
+
+  // Note: req.ip is not reliably available in Next.js 14+.
+  // Use X-Forwarded-For or X-Real-IP headers if behind a proxy.
+  const ipAddress =
+    req.headers?.get("x-forwarded-for")?.split(",")[0] ||
+    req.headers?.get("x-real-ip") ||
+    "unknown";
+
+  const userAgent = req.headers?.get("user-agent") || "unknown";
+
+  return {
+    routePath: pathname,
+    method,
+    ipAddress,
+    userAgent,
   };
-  // Cloud Logging picks up structured JSON on stdout
-  process.stdout.write(JSON.stringify(record) + "\n");
 }

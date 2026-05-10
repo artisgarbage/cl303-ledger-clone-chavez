@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAccess, extractRequestMetadata } from "@/lib/audit";
 import {
   generateNarrative,
   type FinancialSnapshot,
@@ -239,6 +240,22 @@ export async function POST(req: NextRequest) {
         title: result.title,
         promptUsed: result.promptUsed,
         dataSnapshot: snapshot as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+
+    // Audit log: AI narrative generation
+    await logAccess({
+      userId: session.user!.id!,
+      companyId,
+      action: 'create',
+      resource: 'narrative',
+      resourceId: narrative.id,
+      metadata: {
+        ...extractRequestMetadata(req),
+        type: parsed.type,
+        periodStart: parsed.periodStart,
+        periodEnd: parsed.periodEnd,
       },
     });
 

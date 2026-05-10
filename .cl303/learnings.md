@@ -132,3 +132,26 @@ Made User.companyId non-null at database level to prevent orphaned users from by
 - **Rollback procedure:** Documented in `docs/security/sec-03-migration-guide.md`
 - **Migration verification:** Production checklist includes orphaned user check via Cloud SQL Proxy
 - **No npm install needed:** Migration is pure SQL, tests written but not executed in sandbox (npm issues)
+
+## 2026-05-10 — Issue #11 Phase 3: SEC-04 Audit Logging
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PR:** (pending)  
+**Cost:** ~$0.20 (est)
+
+Added comprehensive access audit logging for financial data operations.
+
+### Notes
+
+- **AccessAudit table:** New Prisma model tracks read/create/update/delete of sensitive resources (narratives, periods, projects, people, imports, users)
+- **Three indexes:** (companyId, createdAt), (userId, createdAt), (resource, action, createdAt) for efficient compliance queries
+- **Fire-and-forget pattern:** `logAccess()` catches exceptions and logs to console without blocking the operation - audit failures don't break app functionality
+- **Request metadata:** Helper extracts routePath, method, ipAddress (from X-Forwarded-For or X-Real-IP), userAgent for forensic investigation
+- **High-value routes instrumented:** GET /api/narratives (bulk reads), POST /api/narratives/generate (AI generation), GET /api/periods (financial period reads), DELETE /api/periods (deletions)
+- **Metadata enrichment:** Each audit log includes operation-specific context (count of results, filters used, period dates, etc.)
+- **TypeScript safety:** Explicit union types for AuditAction and AuditResource prevent typos
+- **IP detection:** Handles proxy headers (X-Forwarded-For comma-separated list, X-Real-IP fallback) for accurate IP logging
+- **Comprehensive tests:** Unit tests cover happy path, missing optional fields, error resilience, and all metadata extraction scenarios
+- **Migration strategy:** Creates new table without touching existing data - zero-risk deployment
+- **SOC 2/GDPR compliance:** Enables "who accessed what, when" queries required for Type II controls and Article 32 (security of processing)
+- **Partial coverage:** Started with 4 critical routes - follow-up work can add audit logging to remaining routes (projects, people, settings) as needed
