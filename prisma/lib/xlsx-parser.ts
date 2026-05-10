@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
 export interface ParsedLineItem {
   category: string;
@@ -29,7 +29,7 @@ export interface ParsedFinancialData {
 
 /**
  * Parse a QuickBooks Profit & Loss XLSX export
- * 
+ *
  * Expected format:
  * - Row 0: "Profit and Loss"
  * - Row 1: Company name
@@ -43,17 +43,17 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
   const sheet = workbook.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json<[string, number | string]>(sheet, {
     header: 1,
-    defval: '',
+    defval: "",
   });
 
   // Extract metadata
-  const companyName = (data[1]?.[0] as string) || '';
-  const dateRangeStr = (data[2]?.[0] as string) || '';
+  const companyName = (data[1]?.[0] as string) || "";
+  const dateRangeStr = (data[2]?.[0] as string) || "";
   const { periodStart, periodEnd } = parseDateRange(dateRangeStr);
 
   // Parse line items
   const lineItems: ParsedLineItem[] = [];
-  let currentCategory = '';
+  let currentCategory = "";
   let currentSubcategory: string | null = null;
   let totalRevenue = 0;
   let totalCOGS = 0;
@@ -71,7 +71,7 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
 
     const label = (row[0] as string).trim();
     const value = row[1];
-    
+
     if (!label) continue;
 
     // Detect depth by counting leading spaces in the original label
@@ -80,10 +80,10 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
     const depth = Math.floor(leadingSpaces / 2); // QuickBooks uses 2 spaces per level
 
     // Check if this is a total row
-    const isTotal = label.startsWith('Total for ');
+    const isTotal = label.startsWith("Total for ");
 
     // Parse amount
-    const amount = typeof value === 'number' ? value : 0;
+    const amount = typeof value === "number" ? value : 0;
 
     // Track top-level categories for context
     if (depth === 0 && !isTotal) {
@@ -94,25 +94,25 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
     }
 
     // Track key totals
-    if (label === 'Total for Income') {
+    if (label === "Total for Income") {
       totalRevenue = amount;
-    } else if (label === 'Total for Cost of Goods Sold') {
+    } else if (label === "Total for Cost of Goods Sold") {
       totalCOGS = amount;
-    } else if (label === 'Gross Profit') {
+    } else if (label === "Gross Profit") {
       grossProfit = amount;
-    } else if (label === 'Total Expenses') {
+    } else if (label === "Total Expenses") {
       totalOpEx = amount;
-    } else if (label === 'Net Income') {
+    } else if (label === "Net Income") {
       netIncome = amount;
     }
 
     // Track COGS subcategories
-    if (currentCategory === 'Cost of Goods Sold') {
-      if (label === 'Total for COGS - Payroll Expense') {
+    if (currentCategory === "Cost of Goods Sold") {
+      if (label === "Total for COGS - Payroll Expense") {
         cogsPayroll = amount;
-      } else if (label === 'Total for Contractors') {
+      } else if (label === "Total for Contractors") {
         cogsContractors = amount;
-      } else if (label === 'Total for Essential Software') {
+      } else if (label === "Total for Essential Software") {
         cogsSoftware = amount;
       }
     }
@@ -125,7 +125,7 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
       amount,
       depth,
       isTotal,
-      parentName: depth > 0 ? (currentSubcategory || currentCategory) : null,
+      parentName: depth > 0 ? currentSubcategory || currentCategory : null,
     };
 
     lineItems.push(lineItem);
@@ -168,12 +168,24 @@ function parseDateRange(dateRangeStr: string): {
 
   // Try to extract year
   const yearMatch = cleaned.match(/(\d{4})/);
-  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+  const year = yearMatch
+    ? parseInt(yearMatch[1], 10)
+    : new Date().getFullYear();
 
   // Try to extract months
   const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
 
   let startMonth = 0; // January

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { generateNarrative, type FinancialSnapshot } from '@/lib/narrative-builder';
-import { NarrativeType } from '@prisma/client';
+import { NarrativeType, Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 const generateRequestSchema = z.object({
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
         content: result.content,
         title: result.title,
         promptUsed: result.promptUsed,
-        dataSnapshot: snapshot,
+        dataSnapshot: snapshot as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request', details: error.errors },
+        { error: 'Invalid request', details: error.issues },
         { status: 400 }
       );
     }

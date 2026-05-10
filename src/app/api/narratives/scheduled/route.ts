@@ -5,7 +5,7 @@ import {
   generateNarrative,
   type FinancialSnapshot,
 } from "@/lib/narrative-builder";
-import { NarrativeType } from "@prisma/client";
+import { NarrativeType, Prisma } from "@prisma/client";
 
 interface GenerationResult {
   type: NarrativeType;
@@ -345,7 +345,7 @@ async function generateNarrativeForPeriod(
         content: result.content,
         title: result.title,
         promptUsed: result.promptUsed,
-        dataSnapshot: snapshot,
+        dataSnapshot: snapshot as unknown as Prisma.InputJsonValue,
       },
     });
 

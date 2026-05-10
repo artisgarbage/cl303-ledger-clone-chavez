@@ -121,8 +121,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const fileHash = createHash("sha256").update(fileBuffer).digest("hex");
 
     // --- Parse ---
-    const { parseQuickBooksXlsx } = await import("@/lib/parsers/quickbooks");
-    const parsed = parseQuickBooksXlsx(fileBuffer, basis);
+    const { parseQuickBooksXLSX } = await import("@/lib/parsers/quickbooks");
+    const period = parseQuickBooksXLSX(fileBuffer);
+    // Wrap single-period result in array for consistent handling
+    const parsed = { periods: [{ ...period, basis }] };
 
     if (!parsed || !parsed.periods?.length) {
       throw new Error("Parser returned no periods");
