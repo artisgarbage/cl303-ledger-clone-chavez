@@ -67,7 +67,7 @@ export function parseQuickBooksPL(filePath: string): ParsedFinancialData {
   // Start parsing from row 5 (after headers)
   for (let i = 5; i < data.length; i++) {
     const row = data[i];
-    if (!row || row.length === 0) continue;
+    if (!row || (row as unknown[]).length === 0) continue;
 
     const label = (row[0] as string).trim();
     const value = row[1];
