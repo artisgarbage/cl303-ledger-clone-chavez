@@ -132,3 +132,23 @@ Made User.companyId non-null at database level to prevent orphaned users from by
 - **Rollback procedure:** Documented in `docs/security/sec-03-migration-guide.md`
 - **Migration verification:** Production checklist includes orphaned user check via Cloud SQL Proxy
 - **No npm install needed:** Migration is pure SQL, tests written but not executed in sandbox (npm issues)
+
+## 2026-05-10 — Issue #11 Phase 3: SEC-06 Use Migrate Deploy
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PR:** (pending)  
+**Cost:** ~$0.05 (est)
+
+Changed container entrypoint from `prisma db push` to `prisma migrate deploy` to prevent schema drift in production.
+
+### Notes
+
+- **Problem:** `prisma db push` on every container start syncs schema.prisma directly to DB, bypassing migration history - can cause accidental schema changes in prod
+- **Solution:** `prisma migrate deploy` applies only pre-existing migrations from `prisma/migrations/` directory
+- **Safety:** `migrate deploy` never modifies the Prisma schema file, only executes pending SQL migrations
+- **Production pattern:** Dev creates migrations with `migrate dev`, commits to git, container applies them with `migrate deploy`
+- **Dockerfile verification:** Confirmed `COPY prisma ./prisma/` includes migrations/ directory in both builder and runner stages
+- **Entrypoint change:** Single-line change in `docker-entrypoint.sh` from `prisma db push --skip-generate` to `prisma migrate deploy`
+- **Seed script unchanged:** Still runs after migrations, uses idempotent upserts
+- **Vault directive:** Added migration discipline note to `.vault/directives/engineer.md` for future contributors
+- **Zero risk:** Change only affects containerized deployments; local dev workflow unchanged (still uses `npm run db:migrate:dev`)
