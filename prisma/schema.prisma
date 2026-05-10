@@ -22,6 +22,8 @@ model User {
   accounts     Account[]
   sessions     Session[]
   ingestAudits IngestAudit[]
+  accessAudits     AccessAudit[]
+  accessAudits AccessAudit[]
 }
 
 enum UserRole {
@@ -78,6 +80,7 @@ model Company {
   narratives       Narrative[]
   settings         CompanySettings?
   ingestAudits     IngestAudit[]
+  accessAudits     AccessAudit[]
 }
 
 model CompanySettings {
@@ -325,4 +328,25 @@ enum IngestStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+// ---------------------------------------------------------------------------
+// Access audit — every read/write of sensitive financial data is logged.
+// Enables compliance (SOC 2, GDPR) and forensic investigation.
+// ---------------------------------------------------------------------------
+model AccessAudit {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // "read" | "create" | "update" | "delete"
+  resource   String   // "narrative" | "period" | "project" | "people" | "import"
+  resourceId String?  // the ID of the thing accessed, if applicable
+  metadata   Json?    // {routePath, method, ipAddress, userAgent}
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([resource, action, createdAt])
 }
