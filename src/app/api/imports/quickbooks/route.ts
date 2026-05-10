@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     let parsed;
     try {
-      parsed = parseQuickBooksXLSX(buffer);
+      parsed = await parseQuickBooksXLSX(buffer);
     } catch (parseErr) {
       await prisma.dataImport.update({
         where: { id: dataImport.id },
