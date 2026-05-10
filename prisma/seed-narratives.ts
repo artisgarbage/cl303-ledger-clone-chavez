@@ -1,8 +1,10 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, NarrativeType, AccountingBasis } from "@prisma/client";
 import Anthropic from "@anthropic-ai/sdk";
 import { format } from "date-fns";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 interface NarrativeSeedSpec {
   type: NarrativeType;
@@ -67,18 +69,20 @@ const NARRATIVES: NarrativeSeedSpec[] = [
 /**
  * Build a simple context string from available FinancialPeriod data
  */
-function buildSimpleContext(periods: Array<{
-  periodStart: Date;
-  periodEnd: Date;
-  basis: AccountingBasis;
-  totalRevenue: number;
-  totalCOGS: number;
-  grossProfit: number;
-  grossMargin: number;
-  totalOpEx: number;
-  netIncome: number;
-  netMargin: number;
-}>): string {
+function buildSimpleContext(
+  periods: Array<{
+    periodStart: Date;
+    periodEnd: Date;
+    basis: AccountingBasis;
+    totalRevenue: number;
+    totalCOGS: number;
+    grossProfit: number;
+    grossMargin: number;
+    totalOpEx: number;
+    netIncome: number;
+    netMargin: number;
+  }>,
+): string {
   if (periods.length === 0) {
     return "No financial data available for this period.";
   }
@@ -104,10 +108,10 @@ Net Income: $${p.netIncome.toFixed(0)} (${(p.netMargin * 100).toFixed(1)}%)
 function buildNarrativePrompt(
   spec: NarrativeSeedSpec,
   context: string,
-  companyName: string
+  companyName: string,
 ): string {
   const periodLabel = `${format(spec.periodStart, "MMM yyyy")} to ${format(spec.periodEnd, "MMM yyyy")}`;
-  
+
   return `You are a fractional CFO writing a financial narrative for the CEO of ${companyName}.
 
 Report Type: ${spec.type.replace(/_/g, " ")}
@@ -156,7 +160,7 @@ export async function seedNarratives() {
 
   for (const spec of NARRATIVES) {
     const periodKey = `${format(spec.periodStart, "yyyy-MM-dd")}_${format(spec.periodEnd, "yyyy-MM-dd")}`;
-    
+
     // Check if narrative already exists
     const existing = await prisma.narrative.findFirst({
       where: {
@@ -258,9 +262,9 @@ export async function seedNarratives() {
         `[seed:narratives] generating ${spec.type} ${periodKey}… done (${elapsed}ms)`,
       );
       generatedCount++;
-      
+
       // Add a small delay between API calls to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error) {
       console.error(
         `[seed:narratives] failed to generate ${spec.type} ${periodKey}:`,

@@ -1,3 +1,4 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import {
   PrismaClient,
   PersonType,
@@ -8,7 +9,8 @@ import bcrypt from "bcryptjs";
 import { seedFinancialData } from "./seed-financials";
 import { seedNarratives } from "./seed-narratives";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Seeding Ledger database…");
