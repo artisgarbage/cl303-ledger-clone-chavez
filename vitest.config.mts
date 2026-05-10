@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "prisma/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/lib/utils/comparison.ts", "src/lib/utils/chart-data.ts"],

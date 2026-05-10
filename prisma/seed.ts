@@ -5,6 +5,7 @@ import {
   ProjectStatus,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { seedFinancialData } from "./seed-financials";
 
 const prisma = new PrismaClient();
 
@@ -185,6 +186,9 @@ async function main() {
     });
     console.log(`Project: ${project.name}`);
   }
+
+  // Seed financial data from XLSX files
+  await seedFinancialData();
 
   console.log("\nSeed complete. Login at http://localhost:3000/login");
   console.log("Email:    anthony@codelab303.com");
