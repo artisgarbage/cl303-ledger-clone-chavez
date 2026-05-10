@@ -67,9 +67,5 @@ resource "google_container_cluster" "primary" {
   }
 }
 
-# Kubernetes namespaces
-resource "google_container_cluster" "namespaces" {
-  # Namespaces are created via kubernetes provider in the env main.tf
-  # after the cluster is ready. See env/*/main.tf.
-  count = 0 # placeholder — see env main.tf
-}
+# Namespaces are created by `kubectl create namespace` in the CI deploy step
+# or by Helm's --create-namespace flag. No Terraform resource needed.

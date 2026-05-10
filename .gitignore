@@ -49,3 +49,9 @@ setup_data/**
 next-env.d.ts
 
 /src/generated/prisma
+
+# Terraform — never commit provider binaries or local state cache
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
