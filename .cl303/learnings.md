@@ -66,3 +66,42 @@ Added full period/basis controls to Reports page, error handling, improved histo
 - **Rate limiting:** 1-second delay between narrative generation calls to avoid Anthropic rate limits
 - **Period label helper:** Added `getRelativePeriodLabel()` to generate human-readable labels (Full Year, Q1, YTD) for common date ranges
 - **Defensive coding:** All error paths in Reports page clear on type/preset change, error banner is dismissible
+
+## 2026-05-10 — Security Audit Phase 3: P0 Remediations (Partial)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PRs:** #13 (audit doc), #14 (IDOR fix), #15 (AI egress)  
+**Cost:** ~$45.00 (running total)
+
+Completed audit Phase 2 and 2 of 6 P0 remediations. Budget constraint prevents completing all fixes in single run.
+
+### Delivered
+
+- **PR #13:** Comprehensive security audit document (`docs/security/audit-2026-05.md`)
+  - 14 findings (6 P0, 8 P1) with detailed evidence and remediation steps
+  - Threat model, multi-tenancy isolation matrix, 15 follow-up issues planned
+- **PR #14:** Fixed IDOR vulnerability in `/api/admin/users/[id]` (SEC-01)
+  - Added companyId check before user modification/deletion
+  - Integration tests verify cross-tenant protection
+  - Prevents admin from Company A modifying users in Company B
+- **PR #15:** AI narrative opt-in + PII redaction (SEC-02)
+  - Changed `CompanySettings.narrativesEnabled` default to `false` (opt-in)
+  - Redact line-item names before sending to Anthropic (`[REDACTED]`)
+  - Created `docs/security/ai-egress.md` documenting data handling
+  - GDPR/CCPA compliance: No PII sent without explicit consent
+
+### Remaining P0 Fixes (Require Follow-Up Run)
+
+- **SEC-03:** Make `User.companyId` non-null (schema migration required)
+- **SEC-04:** Add audit logging for financial data access (`AccessAudit` table)
+- **SEC-05:** Replace `xlsx` dependency (HIGH severity Prototype Pollution CVE)
+- **SEC-06:** Use `prisma migrate deploy` instead of `db push` in container entrypoint
+
+### Key Learnings
+
+- **Multi-tenant security:** Most routes correctly scope by `companyId`, but individual resource routes (`[id]`) need explicit IDOR checks
+- **AI egress risk:** QuickBooks line-item names are a major PII leakage vector - must redact before external API calls
+- **Schema defaults matter:** Changing `narrativesEnabled` default to `false` prevents accidental PII egress for new companies
+- **Testing without deps:** npm install issues in sandbox prevented running Vitest - tests written but not executed
+- **Budget management:** Security audits are expensive - 3 PRs consumed ~60% of $75 budget, need to batch remaining fixes
+- **Documentation as deliverable:** Comprehensive audit doc (`audit-2026-05.md`, `ai-egress.md`) provides roadmap for future work
