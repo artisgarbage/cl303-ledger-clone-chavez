@@ -20,7 +20,25 @@ export async function PATCH(
   if (!session)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const companyId = (session.user as { companyId?: string }).companyId;
+  if (!companyId)
+    return NextResponse.json({ error: "No company" }, { status: 400 });
+
   const { id } = await params;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECURITY: Verify the target user belongs to the same company before update
+  // Prevents IDOR — admin from Company A cannot modify users in Company B
+  // ─────────────────────────────────────────────────────────────────────────
+  const targetUser = await prisma.user.findUnique({
+    where: { id },
+    select: { companyId: true },
+  });
+
+  if (!targetUser || targetUser.companyId !== companyId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
   const body = (await req.json()) as {
     role?: string;
     name?: string;
@@ -65,6 +83,10 @@ export async function DELETE(
   if (!session)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const companyId = (session.user as { companyId?: string }).companyId;
+  if (!companyId)
+    return NextResponse.json({ error: "No company" }, { status: 400 });
+
   const { id } = await params;
 
   if (id === session.user?.id) {
@@ -72,6 +94,19 @@ export async function DELETE(
       { error: "Cannot delete your own account" },
       { status: 400 },
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECURITY: Verify the target user belongs to the same company before delete
+  // Prevents IDOR — admin from Company A cannot delete users in Company B
+  // ─────────────────────────────────────────────────────────────────────────
+  const targetUser = await prisma.user.findUnique({
+    where: { id },
+    select: { companyId: true },
+  });
+
+  if (!targetUser || targetUser.companyId !== companyId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   await prisma.user.delete({ where: { id } });
