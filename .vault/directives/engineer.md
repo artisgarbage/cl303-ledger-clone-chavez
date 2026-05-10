@@ -31,3 +31,12 @@ Test coverage is critical for:
 - API routes that handle integrations
 
 The Prisma schema is in `prisma/schema.prisma`. Run `npm run db:migrate:dev` after schema changes.
+
+## Database Migration Discipline
+
+**Always use versioned migrations in production:**
+- Development: `npm run db:migrate:dev` to create migrations
+- Container startup: `prisma migrate deploy` (production-safe)
+- **Never** use `prisma db push` on container start — it's a dev-mode command that can cause schema drift
+
+The `docker-entrypoint.sh` script runs `prisma migrate deploy` on every container start. This applies pending migrations from the `prisma/migrations/` directory without modifying the schema.
