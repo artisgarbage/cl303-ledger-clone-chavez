@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { generateNarrative, type FinancialSnapshot } from '@/lib/narrative-builder';
-import { NarrativeType, Prisma } from '@prisma/client';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import {
+  generateNarrative,
+  type FinancialSnapshot,
+} from "@/lib/narrative-builder";
+import { NarrativeType, Prisma } from "@prisma/client";
+import { z } from "zod";
 
 const generateRequestSchema = z.object({
   type: z.nativeEnum(NarrativeType),
@@ -16,7 +19,7 @@ async function requireAdmin() {
   const session = await auth();
   if (!session?.user) return null;
   const role = (session.user as { role?: string }).role;
-  if (role !== 'ADMIN') return null;
+  if (role !== "ADMIN") return null;
   return session;
 }
 
@@ -27,12 +30,12 @@ async function requireAdmin() {
 export async function POST(req: NextRequest) {
   const session = await requireAdmin();
   if (!session) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const userCompanyId = (session.user as { companyId?: string }).companyId;
   if (!userCompanyId) {
-    return NextResponse.json({ error: 'No company' }, { status: 400 });
+    return NextResponse.json({ error: "No company" }, { status: 400 });
   }
 
   try {
@@ -44,8 +47,8 @@ export async function POST(req: NextRequest) {
     // Verify user has access to this company
     if (companyId !== userCompanyId) {
       return NextResponse.json(
-        { error: 'Cannot generate narratives for other companies' },
-        { status: 403 }
+        { error: "Cannot generate narratives for other companies" },
+        { status: 403 },
       );
     }
 
@@ -62,7 +65,7 @@ export async function POST(req: NextRequest) {
       include: {
         lineItems: {
           where: { isTotal: false },
-          orderBy: { amount: 'desc' },
+          orderBy: { amount: "desc" },
           take: 20,
         },
         company: {
@@ -71,13 +74,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      orderBy: { periodStart: 'asc' },
+      orderBy: { periodStart: "asc" },
     });
 
     if (periods.length === 0) {
       return NextResponse.json(
-        { error: 'No financial data found for the requested period' },
-        { status: 400 }
+        { error: "No financial data found for the requested period" },
+        { status: 400 },
       );
     }
 
@@ -90,7 +93,8 @@ export async function POST(req: NextRequest) {
         totalOpEx: acc.totalOpEx + period.totalOpEx,
         netIncome: acc.netIncome + period.netIncome,
         cogsPayroll: (acc.cogsPayroll || 0) + (period.cogsPayroll || 0),
-        cogsContractors: (acc.cogsContractors || 0) + (period.cogsContractors || 0),
+        cogsContractors:
+          (acc.cogsContractors || 0) + (period.cogsContractors || 0),
         cogsSoftware: (acc.cogsSoftware || 0) + (period.cogsSoftware || 0),
       }),
       {
@@ -102,13 +106,17 @@ export async function POST(req: NextRequest) {
         cogsPayroll: 0,
         cogsContractors: 0,
         cogsSoftware: 0,
-      }
+      },
     );
 
     const grossMargin =
-      aggregated.totalRevenue > 0 ? aggregated.grossProfit / aggregated.totalRevenue : 0;
+      aggregated.totalRevenue > 0
+        ? aggregated.grossProfit / aggregated.totalRevenue
+        : 0;
     const netMargin =
-      aggregated.totalRevenue > 0 ? aggregated.netIncome / aggregated.totalRevenue : 0;
+      aggregated.totalRevenue > 0
+        ? aggregated.netIncome / aggregated.totalRevenue
+        : 0;
 
     // Get company settings for targets
     const company = periods[0].company;
@@ -126,8 +134,8 @@ export async function POST(req: NextRequest) {
       }));
 
     // For year-over-year narratives, fetch prior periods
-    let priorPeriods: FinancialSnapshot['priorPeriods'] = undefined;
-    if (parsed.type === 'YEAR_OVER_YEAR') {
+    let priorPeriods: FinancialSnapshot["priorPeriods"] = undefined;
+    if (parsed.type === "YEAR_OVER_YEAR") {
       const priorYearStart = new Date(periodStart);
       priorYearStart.setFullYear(priorYearStart.getFullYear() - 1);
       const priorYearEnd = new Date(periodEnd);
@@ -148,7 +156,7 @@ export async function POST(req: NextRequest) {
             netIncome: acc.netIncome + p.netIncome,
             grossProfit: acc.grossProfit + p.grossProfit,
           }),
-          { totalRevenue: 0, netIncome: 0, grossProfit: 0 }
+          { totalRevenue: 0, netIncome: 0, grossProfit: 0 },
         );
 
         priorPeriods = [
@@ -216,19 +224,19 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request', details: error.issues },
-        { status: 400 }
+        { error: "Invalid request", details: error.issues },
+        { status: 400 },
       );
     }
 
     if (error instanceof Error) {
-      console.error('Error generating narrative:', error);
+      console.error("Error generating narrative:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
+      { error: "An unexpected error occurred" },
+      { status: 500 },
     );
   }
 }
