@@ -105,3 +105,10 @@ Completed audit Phase 2 and 2 of 6 P0 remediations. Budget constraint prevents c
 - **Testing without deps:** npm install issues in sandbox prevented running Vitest - tests written but not executed
 - **Budget management:** Security audits are expensive - 3 PRs consumed ~60% of $75 budget, need to batch remaining fixes
 - **Documentation as deliverable:** Comprehensive audit doc (`audit-2026-05.md`, `ai-egress.md`) provides roadmap for future work
+- **Audit scope:** Full codebase, git history, API routes, dependencies, CI/CD, multi-tenant isolation, AI egress
+- **No secrets in history:** Verified via git log grep and manual inspection - no `.env.docker`, `setup_data/`, or API keys ever committed
+- **Strong baseline:** `.gitignore` and `.dockerignore` properly exclude financial data; Dockerfile uses non-root user; CI has gitleaks scan and setup_data guard
+- **User.companyId nullable:** Creates orphaned users and auth bypass risk - needs schema migration to non-null
+- **No audit logging:** Financial data access is not logged - compliance gap for SOC 2/GDPR
+- **xlsx CVE:** HIGH severity Prototype Pollution vulnerability in xlsx dependency used for QuickBooks import
+- **prisma db push:** Used on every container start - risks schema drift in production, should use migrations
