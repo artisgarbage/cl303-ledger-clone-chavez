@@ -28,7 +28,11 @@ export interface DateRange {
   label: string;
 }
 
-export function getPeriodRange(preset: PeriodPreset, customStart?: Date, customEnd?: Date): DateRange {
+export function getPeriodRange(
+  preset: PeriodPreset,
+  customStart?: Date,
+  customEnd?: Date,
+): DateRange {
   const now = new Date();
 
   switch (preset) {
@@ -120,6 +124,54 @@ export function getDataAgeWarning(
   if (daysSince > 30) return "red";
   if (daysSince > 7) return "amber";
   return "none";
+}
+
+/**
+ * Returns a human-readable label for a period based on its date range and
+ * narrative type. Handles five patterns:
+ *   1. Full year  (Jan 1 – Dec 31, same year)
+ *   2. Quarter    (when type === QUARTERLY_REVIEW)
+ *   3. Single month (same month & year)
+ *   4. YTD       (starts Jan 1)
+ *   5. Fallback  (formatted date range)
+ */
+export function getRelativePeriodLabel(
+  start: Date,
+  end: Date,
+  type: string,
+): string {
+  const startYear = start.getFullYear();
+  const endYear = end.getFullYear();
+
+  // Full year
+  if (
+    start.getMonth() === 0 &&
+    start.getDate() === 1 &&
+    end.getMonth() === 11 &&
+    end.getDate() === 31 &&
+    startYear === endYear
+  ) {
+    return `Full Year ${startYear}`;
+  }
+
+  // Quarter
+  if (type === "QUARTERLY_REVIEW") {
+    const quarter = Math.ceil((start.getMonth() + 1) / 3);
+    return `Q${quarter} ${startYear}`;
+  }
+
+  // Single month
+  if (start.getMonth() === end.getMonth() && startYear === endYear) {
+    return format(start, "MMMM yyyy");
+  }
+
+  // YTD
+  if (start.getMonth() === 0 && start.getDate() === 1) {
+    return `${format(end, "MMMM yyyy")} YTD`;
+  }
+
+  // Fallback to formatted range
+  return formatPeriodLabel(start, end);
 }
 
 export {
