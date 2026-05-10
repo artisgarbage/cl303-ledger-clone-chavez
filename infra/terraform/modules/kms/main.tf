@@ -38,11 +38,13 @@ resource "google_project_service_identity" "cloudsql_sa" {
   service  = "sqladmin.googleapis.com"
 }
 
-# Grant Cloud Storage service agent encrypt/decrypt
+# Grant Cloud Storage service agent encrypt/decrypt.
+# The storage service identity doesn't expose .email (null), so we use the
+# well-known format after ensuring the SA is initialized via service_identity.
 resource "google_kms_crypto_key_iam_member" "storage_agent" {
   crypto_key_id = google_kms_crypto_key.cmek.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:${google_project_service_identity.storage_sa.email}"
+  member        = "serviceAccount:service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
 
   depends_on = [google_project_service_identity.storage_sa]
 }
