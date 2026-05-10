@@ -132,3 +132,24 @@ Made User.companyId non-null at database level to prevent orphaned users from by
 - **Rollback procedure:** Documented in `docs/security/sec-03-migration-guide.md`
 - **Migration verification:** Production checklist includes orphaned user check via Cloud SQL Proxy
 - **No npm install needed:** Migration is pure SQL, tests written but not executed in sandbox (npm issues)
+
+## 2026-05-10 — Issue #11 Phase 3: SEC-05 Replace xlsx Dependency
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PR:** (pending)  
+**Cost:** ~$0.10 (est)
+
+Replaced `xlsx` library with `exceljs` to eliminate HIGH severity Prototype Pollution CVE.
+
+### Notes
+
+- **Vulnerability:** `xlsx` versions including 0.18.5 have known HIGH severity Prototype Pollution vulnerabilities (CVE-2024-22363, CVE-2023-30533)
+- **Replacement:** `exceljs` v4.4.0 is industry-standard, actively maintained, supports .xlsx read/write, has no known HIGH CVEs
+- **API differences:** exceljs uses async/await (`workbook.xlsx.load(buffer)`), 1-indexed cells vs 0-indexed, different cell value access patterns
+- **Migration strategy:** Updated `parseQuickBooksXLSX()` in `src/lib/parsers/quickbooks.ts` to use exceljs API
+- **Cell value handling:** exceljs cell.value can be object (richText, formula result) - added type guards to extract actual values
+- **Async propagation:** Made `parseQuickBooksXLSX()` async, added `await` to all call sites (`/api/admin/ingest`, `/api/imports/quickbooks`)
+- **Seed script:** Created `parseQuickBooksXLSXFile()` convenience wrapper for file-based parsing in `prisma/seed-financials.ts`
+- **Cleanup:** Deleted obsolete `prisma/lib/xlsx-parser.ts` and its test file (old implementation, replaced by main parser)
+- **Testing gap:** No automated tests for exceljs version (seed script is manual execution) - rely on existing integration test data
+- **Compatibility:** ExcelJS preserves all existing QB parser functionality (indent detection, cell value extraction, date range parsing)
