@@ -13,7 +13,7 @@ master_cidr           = "172.16.0.0/28"
 deletion_protection_gke = false # allow cluster teardown in dev
 
 # Cloud SQL
-sql_tier     = "db-g1-small"
+sql_tier     = "db-custom-1-3840"
 pitr_enabled = false
 deletion_protection_sql = false
 
