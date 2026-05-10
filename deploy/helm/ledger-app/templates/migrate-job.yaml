@@ -53,7 +53,7 @@ spec:
               echo "▶ Waiting for SQL proxy..."
               until nc -z localhost 5432; do sleep 1; done
               echo "▶ Running prisma db push..."
-              node_modules/.bin/prisma db push --skip-generate
+              node_modules/.bin/prisma db push --url "$DATABASE_URL"
               if [ "${SEED_ENABLED}" = "true" ]; then
                 echo "▶ Running seed..."
                 node_modules/.bin/tsx prisma/seed.ts
