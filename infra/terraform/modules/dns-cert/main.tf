@@ -1,31 +1,33 @@
-# Cloud DNS managed zone (created once, shared across envs via subdomains)
+# Cloud DNS managed zone — created by whoever applies first.
+# Both dev and prod create their own zone lookup; the zone itself is created
+# once (controlled by create_dns_zone var, default true).
 resource "google_dns_managed_zone" "main" {
+  count       = var.create_dns_zone ? 1 : 0
   name        = var.dns_zone_name
   dns_name    = var.dns_zone_domain
   project     = var.project_id
   description = "codelab303 primary DNS zone"
-  count       = var.env == "prod" ? 1 : 0 # create zone once from prod workspace
 
   dnssec_config {
     state = "on"
   }
 }
 
+locals {
+  zone_name = var.create_dns_zone ? google_dns_managed_zone.main[0].name : var.dns_zone_name
+}
+
 # The actual A record is managed by the Gateway provisioner after the
 # external IP is assigned. Terraform creates a placeholder record that
 # CI updates once the load balancer IP is known.
-#
-# Operators: after first `helm install`, run:
-#   kubectl get gateway ledger-gateway -n ledger-ENV -o jsonpath='{.status.addresses[0].value}'
-# then update this resource or let external-dns manage it.
 resource "google_dns_record_set" "app" {
   name         = "${var.hostname}."
-  managed_zone = var.env == "prod" ? google_dns_managed_zone.main[0].name : var.dns_zone_name
+  managed_zone = local.zone_name
   type         = "A"
   ttl          = 300
   project      = var.project_id
 
-  # Placeholder — replaced by external-dns controller or manual update
+  # Placeholder — replaced after first helm install
   rrdatas = ["0.0.0.0"]
 
   lifecycle {
@@ -56,7 +58,7 @@ resource "google_certificate_manager_dns_authorization" "app" {
 # Add the CNAME record that Certificate Manager requires for DNS auth
 resource "google_dns_record_set" "cert_auth" {
   name         = google_certificate_manager_dns_authorization.app.dns_resource_record[0].name
-  managed_zone = var.env == "prod" ? google_dns_managed_zone.main[0].name : var.dns_zone_name
+  managed_zone = local.zone_name
   type         = google_certificate_manager_dns_authorization.app.dns_resource_record[0].type
   ttl          = 300
   project      = var.project_id

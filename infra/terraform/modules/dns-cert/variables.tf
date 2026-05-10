@@ -28,3 +28,9 @@ variable "hostname" {
   type        = string
   default     = "ledger.codelab303.io"
 }
+
+variable "create_dns_zone" {
+  description = "Set false if the zone already exists (e.g. prod reuses dev zone)."
+  type        = bool
+  default     = true
+}

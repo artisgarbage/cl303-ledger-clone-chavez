@@ -46,11 +46,12 @@ resource "google_container_cluster" "primary" {
   }
 
   # Shielded nodes for Autopilot are managed automatically
+  # Daily 4h window — satisfies GKE requirement of ≥4h every ≤32 days
   maintenance_policy {
     recurring_window {
-      start_time = "2026-01-01T04:00:00Z"
-      end_time   = "2026-01-01T08:00:00Z"
-      recurrence = "FREQ=WEEKLY;BYDAY=SA,SU"
+      start_time = "2025-01-01T04:00:00Z"
+      end_time   = "2025-01-01T08:00:00Z"
+      recurrence = "FREQ=DAILY"
     }
   }
 

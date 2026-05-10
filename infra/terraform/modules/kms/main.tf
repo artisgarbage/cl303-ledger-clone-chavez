@@ -24,16 +24,34 @@ resource "google_kms_crypto_key" "cmek" {
   }
 }
 
+# Explicitly create the service identities so their SA emails exist before we
+# grant them KMS access. GCP creates these lazily; Terraform must force it.
+resource "google_project_service_identity" "storage_sa" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "storage.googleapis.com"
+}
+
+resource "google_project_service_identity" "cloudsql_sa" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "sqladmin.googleapis.com"
+}
+
 # Grant Cloud Storage service agent encrypt/decrypt
 resource "google_kms_crypto_key_iam_member" "storage_agent" {
   crypto_key_id = google_kms_crypto_key.cmek.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${data.google_project.project.number}@gs-project-accounts.iam.gserviceaccount.com"
+  member        = "serviceAccount:${google_project_service_identity.storage_sa.email}"
+
+  depends_on = [google_project_service_identity.storage_sa]
 }
 
 # Grant Cloud SQL service agent encrypt/decrypt
 resource "google_kms_crypto_key_iam_member" "cloudsql_agent" {
   crypto_key_id = google_kms_crypto_key.cmek.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-cloud-sql.iam.gserviceaccount.com"
+  member        = "serviceAccount:${google_project_service_identity.cloudsql_sa.email}"
+
+  depends_on = [google_project_service_identity.cloudsql_sa]
 }

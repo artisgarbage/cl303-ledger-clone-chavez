@@ -43,7 +43,8 @@ module "iam" {
   gke_cluster_name      = module.gke.cluster_name
   artifact_registry_url = module.artifact_registry.registry_url
 
-  depends_on = [module.project_services]
+  # WI pool (PROJECT.svc.id.goog) only exists after GKE cluster is created
+  depends_on = [module.project_services, module.gke]
 }
 
 module "gke" {
@@ -110,11 +111,12 @@ module "audit_logging" {
 }
 
 module "dns_cert" {
-  source    = "../../modules/dns-cert"
-  project_id = var.project_id
-  region    = var.region
-  env       = var.env
-  hostname  = var.hostname
+  source          = "../../modules/dns-cert"
+  project_id      = var.project_id
+  region          = var.region
+  env             = var.env
+  hostname        = var.hostname
+  create_dns_zone = true  # zone doesn't exist yet; create it here
 
   depends_on = [module.project_services]
 }
