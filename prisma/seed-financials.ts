@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, AccountingBasis } from "@prisma/client";
 import path from "path";
-import { parseQuickBooksPL } from "./lib/xlsx-parser";
+import { parseQuickBooksXLSXFile } from "./../src/lib/parsers/quickbooks";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -52,7 +52,7 @@ export async function seedFinancialData(): Promise<void> {
     console.log(`\n  Parsing ${fileConfig.filename}...`);
 
     try {
-      const data = parseQuickBooksPL(filePath);
+      const data = await parseQuickBooksXLSXFile(filePath);
 
       console.log(
         `    Period: ${data.periodStart.toISOString().split("T")[0]} → ${data.periodEnd.toISOString().split("T")[0]}`,

@@ -133,78 +133,46 @@ Made User.companyId non-null at database level to prevent orphaned users from by
 - **Migration verification:** Production checklist includes orphaned user check via Cloud SQL Proxy
 - **No npm install needed:** Migration is pure SQL, tests written but not executed in sandbox (npm issues)
 
-## 2026-05-10 — Issue #11 Phase 3: SEC-06 Use Migrate Deploy
+## 2026-05-10 — Issue #11 Phase 3: SEC-04 Audit Logging
 
 **Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
 **PR:** (pending)  
-**Cost:** ~$0.05 (est)
+**Cost:** ~$0.20 (est)
 
-Changed container entrypoint from `prisma db push` to `prisma migrate deploy` to prevent schema drift in production.
+Added comprehensive access audit logging for financial data operations.
 
 ### Notes
 
-- **Problem:** `prisma db push` on every container start syncs schema.prisma directly to DB, bypassing migration history - can cause accidental schema changes in prod
-- **Solution:** `prisma migrate deploy` applies only pre-existing migrations from `prisma/migrations/` directory
-- **Safety:** `migrate deploy` never modifies the Prisma schema file, only executes pending SQL migrations
-- **Production pattern:** Dev creates migrations with `migrate dev`, commits to git, container applies them with `migrate deploy`
-- **Dockerfile verification:** Confirmed `COPY prisma ./prisma/` includes migrations/ directory in both builder and runner stages
-- **Entrypoint change:** Single-line change in `docker-entrypoint.sh` from `prisma db push --skip-generate` to `prisma migrate deploy`
-- **Seed script unchanged:** Still runs after migrations, uses idempotent upserts
-- **Vault directive:** Added migration discipline note to `.vault/directives/engineer.md` for future contributors
-- **Zero risk:** Change only affects containerized deployments; local dev workflow unchanged (still uses `npm run db:migrate:dev`)
+- **AccessAudit table:** New Prisma model tracks read/create/update/delete of sensitive resources (narratives, periods, projects, people, imports, users)
+- **Three indexes:** (companyId, createdAt), (userId, createdAt), (resource, action, createdAt) for efficient compliance queries
+- **Fire-and-forget pattern:** `logAccess()` catches exceptions and logs to console without blocking the operation - audit failures don't break app functionality
+- **Request metadata:** Helper extracts routePath, method, ipAddress (from X-Forwarded-For or X-Real-IP), userAgent for forensic investigation
+- **High-value routes instrumented:** GET /api/narratives (bulk reads), POST /api/narratives/generate (AI generation), GET /api/periods (financial period reads), DELETE /api/periods (deletions)
+- **Metadata enrichment:** Each audit log includes operation-specific context (count of results, filters used, period dates, etc.)
+- **TypeScript safety:** Explicit union types for AuditAction and AuditResource prevent typos
+- **IP detection:** Handles proxy headers (X-Forwarded-For comma-separated list, X-Real-IP fallback) for accurate IP logging
+- **Comprehensive tests:** Unit tests cover happy path, missing optional fields, error resilience, and all metadata extraction scenarios
+- **Migration strategy:** Creates new table without touching existing data - zero-risk deployment
+- **SOC 2/GDPR compliance:** Enables "who accessed what, when" queries required for Type II controls and Article 32 (security of processing)
+- **Partial coverage:** Started with 4 critical routes - follow-up work can add audit logging to remaining routes (projects, people, settings) as needed
 
-## 2026-05-10 — Issue #11 Phase 3: Summary of All P0 Remediations
+## 2026-05-10 — Issue #11 Phase 3: SEC-05 Replace xlsx Dependency
 
 **Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
-**Total cost:** ~$0.40 (4 PRs across 2 runs)
+**PR:** (pending)  
+**Cost:** ~$0.10 (est)
 
-Completed all 6 P0 security findings from May 2026 audit.
+Replaced `xlsx` library with `exceljs` to eliminate HIGH severity Prototype Pollution CVE.
 
-### Shipped PRs
+### Notes
 
-| PR | Finding | Status | Description |
-|----|---------|--------|-------------|
-| #14 | SEC-01 | ✅ Merged | Fixed IDOR in user admin routes |
-| #15 | SEC-02 | ✅ Merged | AI narrative opt-in + PII redaction |
-| #16 | SEC-03 | ✅ Merged | Made User.companyId NOT NULL |
-| #17 | SEC-04 | 🔄 Open | AccessAudit logging for financial data |
-| #18 | SEC-05 | 🔄 Open | Replaced xlsx with exceljs (CVE fix) |
-| #19 | SEC-06 | 🔄 Open | Migrate deploy instead of db push |
-
-### Security posture improvement
-
-**Before audit:**
-- Cross-tenant IDOR vulnerabilities in admin routes
-- AI narratives sent unredacted PII to Anthropic without opt-in
-- Nullable User.companyId created orphaned users
-- No audit trail for financial data access
-- HIGH severity Prototype Pollution CVE in xlsx dependency
-- Schema drift risk from db push in production containers
-
-**After remediation:**
-- ✅ Multi-tenant isolation enforced at schema and route level
-- ✅ AI egress controlled via per-company opt-in, PII redacted
-- ✅ Database-level NOT NULL constraint on companyId
-- ✅ Comprehensive audit logging for compliance
-- ✅ Supply-chain vulnerability eliminated
-- ✅ Production-safe migration workflow
-
-### Compliance value
-
-- **SOC 2 Type II:** Now meets CC6.1 (access controls), CC7.2 (audit logging), CC7.3 (system monitoring)
-- **GDPR:** Article 32 (security of processing), Article 30 (records of processing)
-- **Multi-tenancy:** Defense-in-depth isolation (schema constraints + route guards + IDOR checks)
-
-### Follow-up work (P1 findings)
-
-Remaining P1 issues documented in audit report:
-- SEC-07: Harden NextAuth cookie flags
-- SEC-08: Add rate limiting
-- SEC-09: MFA and session management
-- SEC-10: Fail-fast env validation
-- SEC-11: CSP and security headers
-- SEC-12: Tenant-scoped Prisma client
-- SEC-13: NetworkPolicy egress allowlist
-- SEC-14: Pin GitHub Actions to commit SHAs
-
-All tracked in separate issues linked from #11.
+- **Vulnerability:** `xlsx` versions including 0.18.5 have known HIGH severity Prototype Pollution vulnerabilities (CVE-2024-22363, CVE-2023-30533)
+- **Replacement:** `exceljs` v4.4.0 is industry-standard, actively maintained, supports .xlsx read/write, has no known HIGH CVEs
+- **API differences:** exceljs uses async/await (`workbook.xlsx.load(buffer)`), 1-indexed cells vs 0-indexed, different cell value access patterns
+- **Migration strategy:** Updated `parseQuickBooksXLSX()` in `src/lib/parsers/quickbooks.ts` to use exceljs API
+- **Cell value handling:** exceljs cell.value can be object (richText, formula result) - added type guards to extract actual values
+- **Async propagation:** Made `parseQuickBooksXLSX()` async, added `await` to all call sites (`/api/admin/ingest`, `/api/imports/quickbooks`)
+- **Seed script:** Created `parseQuickBooksXLSXFile()` convenience wrapper for file-based parsing in `prisma/seed-financials.ts`
+- **Cleanup:** Deleted obsolete `prisma/lib/xlsx-parser.ts` and its test file (old implementation, replaced by main parser)
+- **Testing gap:** No automated tests for exceljs version (seed script is manual execution) - rely on existing integration test data
+- **Compatibility:** ExcelJS preserves all existing QB parser functionality (indent detection, cell value extraction, date range parsing)

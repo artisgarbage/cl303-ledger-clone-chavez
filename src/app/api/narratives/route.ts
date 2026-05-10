@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { logAccess, extractRequestMetadata } from '@/lib/audit';
 import { NarrativeType } from '@prisma/client';
 
 async function requireAdmin() {
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest) {
   }
 
   const companyId = (session.user as { companyId?: string }).companyId;
-  if (!companyId) {
+  const userId = session.user?.id;
+
+  if (!companyId || !userId) {
     return NextResponse.json({ error: 'No company' }, { status: 400 });
   }
 
@@ -71,6 +74,19 @@ export async function GET(req: NextRequest) {
       }),
       prisma.narrative.count({ where }),
     ]);
+
+    // Audit log: bulk narrative read
+    await logAccess({
+      userId,
+      companyId,
+      action: 'read',
+      resource: 'narrative',
+      metadata: {
+        ...extractRequestMetadata(req),
+        count: narratives.length,
+        filters: { type, periodStart, periodEnd },
+      },
+    });
 
     return NextResponse.json({
       narratives,

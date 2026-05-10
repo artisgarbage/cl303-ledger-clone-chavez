@@ -122,7 +122,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // --- Parse ---
     const { parseQuickBooksXLSX } = await import("@/lib/parsers/quickbooks");
-    const period = parseQuickBooksXLSX(fileBuffer);
+    const period = await parseQuickBooksXLSX(fileBuffer);
     // Wrap single-period result in array for consistent handling
     const parsed = { periods: [{ ...period, basis }] };
 

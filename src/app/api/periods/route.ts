@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAccess, extractRequestMetadata } from "@/lib/audit";
 import { AccountingBasis } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -10,6 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   const companyId = (session.user as { companyId: string }).companyId;
+  const userId = session.user.id;
   const { searchParams } = new URL(req.url);
   const basisParam = searchParams.get("basis") as AccountingBasis | null;
 
@@ -23,6 +25,21 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  // Audit log: financial period bulk read
+  if (userId) {
+    await logAccess({
+      userId,
+      companyId,
+      action: 'read',
+      resource: 'period',
+      metadata: {
+        ...extractRequestMetadata(req),
+        count: periods.length,
+        basis: basisParam,
+      },
+    });
+  }
+
   return NextResponse.json(periods);
 }
 
@@ -33,6 +50,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const companyId = (session.user as { companyId: string }).companyId;
+  const userId = session.user.id;
   const { searchParams } = new URL(req.url);
   const periodId = searchParams.get("id");
 
@@ -52,6 +70,23 @@ export async function DELETE(req: NextRequest) {
     prisma.lineItem.deleteMany({ where: { periodId } }),
     prisma.financialPeriod.delete({ where: { id: periodId } }),
   ]);
+
+  // Audit log: financial period deletion
+  if (userId) {
+    await logAccess({
+      userId,
+      companyId,
+      action: 'delete',
+      resource: 'period',
+      resourceId: periodId,
+      metadata: {
+        ...extractRequestMetadata(req),
+        periodStart: period.periodStart.toISOString(),
+        periodEnd: period.periodEnd.toISOString(),
+        basis: period.basis,
+      },
+    });
+  }
 
   return NextResponse.json({ success: true });
 }

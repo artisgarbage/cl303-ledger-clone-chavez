@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 import { AccountingBasis } from "@prisma/client";
 
 export interface ParsedLineItem {
@@ -133,21 +133,32 @@ function detectBasis(footerText: string): AccountingBasis {
 }
 
 function getCellValue(
-  ws: XLSX.WorkSheet,
+  ws: ExcelJS.Worksheet,
   row: number,
   col: number,
 ): string | number | null {
-  const addr = XLSX.utils.encode_cell({ r: row, c: col });
-  const cell = ws[addr];
-  if (!cell) return null;
-  return cell.v ?? null;
+  const cell = ws.getRow(row + 1).getCell(col + 1); // ExcelJS is 1-indexed
+  if (!cell || cell.value === null || cell.value === undefined) return null;
+  
+  // Handle different value types
+  if (typeof cell.value === 'object') {
+    // Rich text or formula
+    if ('richText' in cell.value) {
+      return cell.value.richText.map(t => t.text).join('');
+    }
+    if ('result' in cell.value) {
+      return cell.value.result as string | number;
+    }
+    return null;
+  }
+  
+  return cell.value as string | number;
 }
 
-function getCellIndent(ws: XLSX.WorkSheet, row: number, col: number): number {
-  const addr = XLSX.utils.encode_cell({ r: row, c: col });
-  const cell = ws[addr];
-  if (!cell || !cell.s) return 0;
-  return cell.s?.alignment?.indent ?? 0;
+function getCellIndent(ws: ExcelJS.Worksheet, row: number, col: number): number {
+  const cell = ws.getRow(row + 1).getCell(col + 1);
+  if (!cell || !cell.style || !cell.style.alignment) return 0;
+  return cell.style.alignment.indent ?? 0;
 }
 
 function parseAmount(raw: string | number | null): number | null {
@@ -176,15 +187,14 @@ const SKIP_CATEGORIES = new Set([
   "unapplied cash bill payment expense",
 ]);
 
-export function parseQuickBooksXLSX(buffer: Buffer): ParsedQBPeriod {
-  const workbook = XLSX.read(buffer, { type: "buffer", cellStyles: true });
-  const sheetName = workbook.SheetNames[0];
-  const ws = workbook.Sheets[sheetName];
-
+export async function parseQuickBooksXLSX(buffer: Buffer): Promise<ParsedQBPeriod> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  
+  const ws = workbook.worksheets[0];
   if (!ws) throw new Error("No worksheet found in file");
 
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:B1");
-  const maxRow = range.e.r;
+  const maxRow = ws.rowCount;
 
   // Row 1 = index 0: "Profit and Loss"
   // Row 2 = index 1: Company name
@@ -206,7 +216,7 @@ export function parseQuickBooksXLSX(buffer: Buffer): ParsedQBPeriod {
   let basis: AccountingBasis = AccountingBasis.CASH;
   let lastPopulatedRow = 5;
 
-  for (let r = maxRow; r >= 5; r--) {
+  for (let r = maxRow - 1; r >= 5; r--) {
     const cellA = getCellValue(ws, r, 0);
     if (cellA && typeof cellA === "string" && cellA.trim() !== "") {
       const text = cellA.toLowerCase();
@@ -339,4 +349,13 @@ export function parseQuickBooksXLSX(buffer: Buffer): ParsedQBPeriod {
     lineItems,
     rawRows,
   };
+}
+
+/**
+ * Parse a QuickBooks XLSX file from disk (convenience wrapper for seed scripts)
+ */
+export async function parseQuickBooksXLSXFile(filePath: string): Promise<ParsedQBPeriod> {
+  const fs = await import('fs/promises');
+  const buffer = await fs.readFile(filePath);
+  return parseQuickBooksXLSX(buffer);
 }
