@@ -94,7 +94,7 @@ model CompanySettings {
   harvestAccountId     String?
   forecastAccountId    String?
   lastHarvestSync      DateTime?
-  narrativesEnabled    Boolean  @default(true)
+  narrativesEnabled    Boolean  @default(false)
   updatedAt            DateTime @updatedAt
 }
 

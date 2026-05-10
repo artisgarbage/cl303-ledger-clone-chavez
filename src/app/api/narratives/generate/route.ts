@@ -52,6 +52,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ───────────────────────────────────────────────────────────────────────
+    // SECURITY: Check if AI narratives are enabled for this company
+    // Default is OFF (narrativesEnabled=false) to prevent PII egress to
+    // Anthropic without explicit opt-in. Line-item names often contain
+    // vendor/customer names that would violate GDPR/CCPA data processing.
+    // ───────────────────────────────────────────────────────────────────────
+    const companySettings = await prisma.companySettings.findUnique({
+      where: { companyId },
+    });
+
+    if (!companySettings?.narrativesEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "AI narratives are disabled for this company. Enable them in Settings to generate reports.",
+        },
+        { status: 403 },
+      );
+    }
+
     const periodStart = new Date(parsed.periodStart);
     const periodEnd = new Date(parsed.periodEnd);
 
@@ -122,14 +142,21 @@ export async function POST(req: NextRequest) {
     const company = periods[0].company;
     const settings = company.settings;
 
-    // Collect top line items across all periods
+    // ───────────────────────────────────────────────────────────────────────
+    // SECURITY: Redact line-item names to prevent vendor/customer PII egress
+    // QuickBooks line-item "name" field often contains:
+    //   - Customer names ("Acme Corp - Invoice #1234")
+    //   - Vendor names ("John Doe - Contractor")
+    //   - Employee names, project codes, etc.
+    // We send only category + amount to Claude, never the raw name field.
+    // ───────────────────────────────────────────────────────────────────────
     const allLineItems = periods.flatMap((p) => p.lineItems);
     const topLineItems = allLineItems
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
       .slice(0, 20)
       .map((item) => ({
         category: item.category,
-        name: item.name,
+        name: "[REDACTED]", // Never send line-item names to AI
         amount: item.amount,
       }));
 
