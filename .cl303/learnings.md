@@ -66,3 +66,28 @@ Added full period/basis controls to Reports page, error handling, improved histo
 - **Rate limiting:** 1-second delay between narrative generation calls to avoid Anthropic rate limits
 - **Period label helper:** Added `getRelativePeriodLabel()` to generate human-readable labels (Full Year, Q1, YTD) for common date ranges
 - **Defensive coding:** All error paths in Reports page clear on type/preset change, error banner is dismissible
+
+## 2026-05-10 — Issue #11: Security audit and P0 remediations
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/11  
+**PR:** (in progress)  
+**Cost:** ~$30.00 (est)
+
+Comprehensive security audit of financial platform with real codelab303 data, followed by P0 remediations.
+
+### Notes
+
+- **Audit scope:** Full codebase, git history, API routes, dependencies, CI/CD, multi-tenant isolation, AI egress
+- **No secrets in history:** Verified via git log grep and manual inspection - no `.env.docker`, `setup_data/`, or API keys ever committed
+- **Strong baseline:** `.gitignore` and `.dockerignore` properly exclude financial data; Dockerfile uses non-root user; CI has gitleaks scan and setup_data guard
+- **Critical IDOR found:** `/api/admin/users/[id]` allows cross-tenant user modification/deletion - admin from Company A can delete users from Company B
+- **AI egress risk:** Narrative generation sends line-item names (vendor/customer PII) to Anthropic without explicit opt-in or redaction
+- **User.companyId nullable:** Creates orphaned users and auth bypass risk - needs schema migration to non-null
+- **No audit logging:** Financial data access is not logged - compliance gap for SOC 2/GDPR
+- **xlsx CVE:** HIGH severity Prototype Pollution vulnerability in xlsx dependency used for QuickBooks import
+- **prisma db push:** Used on every container start - risks schema drift in production, should use migrations
+- **NextAuth cookie flags:** Not explicitly hardened - needs Secure, SameSite=Strict, HttpOnly
+- **Multi-tenant isolation:** Most routes correctly filter by companyId, but user admin routes are vulnerable
+- **Remediation approach:** 6 separate PRs for P0 fixes, 15 follow-up issues for P1/P2 work
+- **Test baseline:** All existing tests passing before starting fixes
+- **Documentation:** Created comprehensive `docs/security/audit-2026-05.md` with findings table, threat model, isolation matrix
