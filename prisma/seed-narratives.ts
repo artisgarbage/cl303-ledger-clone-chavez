@@ -246,7 +246,6 @@ export async function seedNarratives() {
           type: spec.type,
           periodStart: spec.periodStart,
           periodEnd: spec.periodEnd,
-          basis: spec.basis,
           content,
           title: spec.title,
           dataSnapshot: {
