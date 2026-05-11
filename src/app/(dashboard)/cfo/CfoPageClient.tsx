@@ -134,7 +134,10 @@ export function CfoPageClient({
                   >
                     {conv.title || "Untitled conversation"}
                   </div>
-                  <div className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
+                  <div
+                    className="text-[11px] mt-0.5"
+                    style={{ color: "var(--muted)" }}
+                  >
                     {new Date(conv.updatedAt).toLocaleDateString()}
                   </div>
                   <div

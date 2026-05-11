@@ -137,10 +137,7 @@ async function periodsGetPnL(
   }
 
   // Add contractor lag adjustment if present
-  if (
-    period.estimatedContractorLag !== null ||
-    period.adjustedCOGS !== null
-  ) {
+  if (period.estimatedContractorLag !== null || period.adjustedCOGS !== null) {
     result.adjustments = {
       estimatedContractorLag: period.estimatedContractorLag ?? undefined,
       adjustedCOGS: period.adjustedCOGS ?? undefined,

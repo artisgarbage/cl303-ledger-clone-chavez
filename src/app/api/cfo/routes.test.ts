@@ -272,7 +272,7 @@ describe("GET /api/cfo/conversations", () => {
       .calls[0][0] as { take: number };
     expect(callArg.take).toBe(50);
   });
-})
+});
 
 // ─── POST /api/cfo/conversations ──────────────────────────────────────────────
 
@@ -485,10 +485,9 @@ describe("DELETE /api/cfo/conversations/[id]", () => {
   });
 
   function makeDeleteRequest(id: string) {
-    return new Request(
-      `http://localhost:3000/api/cfo/conversations/${id}`,
-      { method: "DELETE" },
-    ) as import("next/server").NextRequest;
+    return new Request(`http://localhost:3000/api/cfo/conversations/${id}`, {
+      method: "DELETE",
+    }) as import("next/server").NextRequest;
   }
 
   function makeCtx(id: string) {

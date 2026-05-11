@@ -104,9 +104,7 @@ async function narrativeRecent(
     narratives: narratives.map((n) => {
       // Extract first 200 chars as summary
       const summary =
-        n.content.length > 200
-          ? n.content.slice(0, 200) + "..."
-          : n.content;
+        n.content.length > 200 ? n.content.slice(0, 200) + "..." : n.content;
 
       return {
         id: n.id,

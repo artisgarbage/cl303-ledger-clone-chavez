@@ -15,6 +15,7 @@ The M1 CFO agent (Margot Hale) was exercised end-to-end against the seeded produ
 ## Screenshots
 
 ### 1. Dashboard — Seeded Financial Data
+
 ![Dashboard](assets/margot-m1/dashboard.png)
 
 Real codelab303 LLC data: $386K YTD revenue, -17.1% net margin (2026 partial year through Apr 15). Margot is visible in the sidebar.
@@ -22,6 +23,7 @@ Real codelab303 LLC data: $386K YTD revenue, -17.1% net margin (2026 partial yea
 ---
 
 ### 2. Margot — Welcome State
+
 ![Margot Welcome](assets/margot-m1/margot-welcome.png)
 
 Empty state with "New Conversation" CTA. Conversation list (with existing session) visible in left panel.
@@ -29,6 +31,7 @@ Empty state with "New Conversation" CTA. Conversation list (with existing sessio
 ---
 
 ### 3. Margot — Conversation Loaded
+
 ![Margot Conversation](assets/margot-m1/margot-conversation-loaded.png)
 
 Full conversation panel showing multi-turn history. Message input is active.
@@ -36,11 +39,13 @@ Full conversation panel showing multi-turn history. Message input is active.
 ---
 
 ### 4. Margot — First Tool Call: 2024 P&L
+
 ![Margot First Answer](assets/margot-m1/margot-chat-full-conversation.png)
 
 **Prompt:** "What was our gross margin for full-year 2024 on a cash basis?"
 
 **Margot's response:**
+
 > 35.4% gross margin for full-year 2024 on a cash basis. Revenue of $1.81M against COGS of $1.17M. The bulk of your cost structure is wages ($437K) and contractors ($549K), with some software and platform costs.
 
 Tool called: `periods_getPnL(periodStart: "2024-01-01", periodEnd: "2024-12-31", basis: "CASH")` — matched `FinancialPeriod` record, returned $1.81M revenue, 35.4% grossMargin.
@@ -48,16 +53,18 @@ Tool called: `periods_getPnL(periodStart: "2024-01-01", periodEnd: "2024-12-31",
 ---
 
 ### 5. Margot — Multi-Turn YoY Analysis
+
 ![Margot YoY Analysis](assets/margot-m1/margot-chat-yoy-analysis.png)
 
 **Prompt:** "How did that compare to 2025? And what's driving the margin compression we're seeing in early 2026?"
 
 **Margot's response:**
+
 > 2024: 35.4% gross margin  
-> 2025: 25.5% gross margin  
-> 
-> That's a 990 basis point drop year-over-year. The driver is labor cost inflation — wages jumped from $437K to $641K while revenue only grew from $1.81M to $1.57M. You're carrying more expensive talent on lower revenue.  
-> 
+> 2025: 25.5% gross margin
+>
+> That's a 990 basis point drop year-over-year. The driver is labor cost inflation — wages jumped from $437K to $641K while revenue only grew from $1.81M to $1.57M. You're carrying more expensive talent on lower revenue.
+>
 > Can't analyze early 2026 compression without data for that period. You'll need to import the QuickBooks data first.
 
 Two tool calls in sequence: `periods_getPnL` for 2024, then `periods_getPnL` for 2025. Multi-turn context preserved (Margot remembered the 2024 figure from the prior turn). Correctly refused to fabricate 2026 data.
@@ -67,6 +74,7 @@ Two tool calls in sequence: `periods_getPnL` for 2024, then `periods_getPnL` for
 ## Bugs Found and Fixed During Testing
 
 ### BUG-1: Tool names rejected by Anthropic API (dot notation)
+
 **Error:** `tools.0.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'`
 
 Tool names used dots (`periods.getPnL`) which the API doesn't allow. Fixed by renaming to underscore: `periods_getPnL`, `projects_list`, `narrative_recent`.
@@ -76,6 +84,7 @@ Tool names used dots (`periods.getPnL`) which the API doesn't allow. Fixed by re
 ---
 
 ### BUG-2: Period date lookup missed timezone-offset records
+
 **Symptom:** `periods_getPnL` called correctly but returned "No financial period found" despite the record existing.
 
 **Root cause:** Seed data was created with PST-local midnight dates (stored as `2024-01-01 07:00:00 UTC`), while the tool queried exact UTC midnight (`2024-01-01 00:00:00 UTC`). Prisma's exact timestamp match failed.
@@ -112,6 +121,7 @@ Both fixes committed in `e16d731` → pushed to `main`.
 ## Environment Setup Notes
 
 For local dev, seed requires:
+
 ```bash
 # 1. Start Docker Postgres
 docker-compose up -d

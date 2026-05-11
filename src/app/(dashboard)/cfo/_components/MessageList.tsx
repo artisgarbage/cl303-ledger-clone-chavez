@@ -57,12 +57,8 @@ export function MessageList({ messages }: MessageListProps) {
             <div
               className="max-w-2xl rounded-xl px-4 py-3"
               style={{
-                background: isUser
-                  ? "var(--accent-blue)"
-                  : "var(--surface-2)",
-                border: isUser
-                  ? "none"
-                  : "1px solid var(--border)",
+                background: isUser ? "var(--accent-blue)" : "var(--surface-2)",
+                border: isUser ? "none" : "1px solid var(--border)",
                 color: isUser ? "white" : "var(--foreground)",
               }}
             >
