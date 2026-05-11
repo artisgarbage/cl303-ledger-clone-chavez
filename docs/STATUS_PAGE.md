@@ -3,24 +3,23 @@
 ## Overview
 
 The `/status` page provides real-time health monitoring for platform services:
+
 - Database (PostgreSQL)
 - AI Narratives (Anthropic Claude)
 - Harvest Sync (Time tracking)
 - Forecast Sync (Capacity planning)
 
-## Current Implementation (MVP)
-
-This is an **MVP implementation** that demonstrates the status page pattern without requiring full infrastructure scaffolding.
-
-### Features Implemented
+## Implementation
 
 ✅ **API Endpoint**: `GET /api/status`
+
 - Returns JSON with health status for all services
 - Parallel checks with 3-second timeouts
 - Graceful error handling
 - No secrets exposed in responses
 
 ✅ **Status Page UI**: `/status`
+
 - Card grid showing each service
 - Status badges (Operational, Degraded, Not Configured)
 - Auto-polling every 30 seconds
@@ -29,16 +28,23 @@ This is an **MVP implementation** that demonstrates the status page pattern with
 - Overall system status indicator
 
 ✅ **Navigation**
-- Link from home page to status page
+
+- Link from authenticated dashboard sidebar to status page
+
+✅ **Authentication**
+
+- Protected by NextAuth.js session middleware (`src/middleware.ts`)
+- ADMIN role: sees configuration labels and detailed error messages
 
 ✅ **Tests**
+
 - 27 unit tests for API route
 - Full coverage of status calculations
 - Security checks (no secret leakage)
 
 ### Configuration
 
-Services are configured via environment variables:
+Services are configured via environment variables (local) or GCP Secret Manager via ESO (production):
 
 ```bash
 # Database
@@ -57,105 +63,13 @@ FORECAST_ACCOUNT_ID=12345
 
 If environment variables are not set, services will show as "Not Configured".
 
-## What's Missing (Production Requirements)
+In production these are managed by External Secrets Operator pulling from GCP Secret Manager (see [docs/deploy/architecture.md](deploy/architecture.md)).
 
-The original issue (#3) requires additional infrastructure that doesn't exist in this repo yet:
+## Tests
 
-### 🔐 Authentication System
-- **Required**: NextAuth.js (Auth.js) with session management
-- **Required**: User model with roles (ADMIN, MEMBER, VIEWER)
-- **Issue**: No auth system exists yet
-- **Impact**: Status page is currently public (should be authenticated)
-
-### 🗄️ Database Layer
-- **Required**: Prisma ORM + PostgreSQL connection
-- **Required**: CompanySettings model to store API credentials per company
-- **Issue**: No database schema exists yet
-- **Impact**: Using environment variables instead of per-company settings
-
-### 🎨 Dashboard Layout
-- **Required**: Sidebar navigation component
-- **Required**: Dashboard layout wrapper
-- **Issue**: No shared layout exists yet
-- **Impact**: Status page is standalone, no sidebar integration
-
-### 👥 Role-Based Access
-- **Required**: Admin-only configuration details
-- **Required**: Middleware for role checking
-- **Issue**: No RBAC system exists yet
-- **Impact**: All users see the same view
-
-### 📊 Sidebar Status Indicator
-- **Required**: Degraded service indicator dot in sidebar
-- **Required**: Lightweight status polling
-- **Issue**: No sidebar component exists yet
-- **Impact**: No navigation-level status indicator
-
-## Upgrade Path
-
-To implement the full production version, follow these steps:
-
-### Step 1: Set up Database
 ```bash
-npm install prisma @prisma/client
-npx prisma init
-```
-
-Create schema with User, Company, and CompanySettings models.
-
-### Step 2: Add Authentication
-```bash
-npm install next-auth @auth/prisma-adapter
-```
-
-Configure NextAuth with database adapter and role-based sessions.
-
-### Step 3: Create Dashboard Layout
-- Create `src/app/(dashboard)/layout.tsx`
-- Add Sidebar component with navigation
-- Move status page to `src/app/(dashboard)/status/page.tsx`
-
-### Step 4: Add Middleware
-```typescript
-// src/middleware.ts
-export { auth as middleware } from "@/lib/auth";
-
-export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
-};
-```
-
-### Step 5: Update Status API
-- Check session with `await auth()`
-- Return 401 if no session
-- Query CompanySettings from database
-- Use company-specific credentials for checks
-
-### Step 6: Add Admin Details
-- Check user role in StatusClient
-- Show configuration labels for ADMIN users
-- Show error details for ADMIN users
-
-### Step 7: Add Sidebar Indicator
-- Poll `/api/status` from layout
-- Show amber/red dot when degraded
-- Update on status changes
-
-## Testing
-
-Run tests:
-```bash
-npm test
-```
-
-Run tests in watch mode:
-```bash
-npm run test:watch
-```
-
-Build for production:
-```bash
-npm run build
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
+  npx vitest run src/app/api/status/ src/app/api/healthz/ --reporter=verbose
 ```
 
 ## API Reference
@@ -165,6 +79,7 @@ npm run build
 Returns current health status for all services.
 
 **Response:**
+
 ```json
 {
   "timestamp": "2026-05-06T19:00:00.000Z",
@@ -192,11 +107,13 @@ Returns current health status for all services.
 ```
 
 **Status Values:**
+
 - `operational`: Service is working correctly
 - `degraded`: Service is configured but failing (API error, timeout, bad credentials)
 - `not_configured`: Required credentials are missing
 
 **Overall Status:**
+
 - `operational`: All configured services are operational
 - `degraded`: At least one configured service is degraded
 
