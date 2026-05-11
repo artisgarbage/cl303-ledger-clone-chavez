@@ -86,10 +86,11 @@ export async function runTurn(
     // TOOL and SYSTEM messages are encoded in content blocks, not separate messages
   }
 
-  // Add current user message
+  // Add current user message — wrap in XML delimiter to prevent prompt injection
+  // (Anthropic best practice: https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-prompt-injections)
   messages.push({
     role: "user",
-    content: userMessage,
+    content: `<user_input>${userMessage}</user_input>`,
   });
 
   // Execute loop

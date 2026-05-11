@@ -401,9 +401,12 @@ model Message {
   conversationId   String
   conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role             MessageRole
+  // SECURITY: May contain PII (financial data, account details, transaction amounts).
+  // Do NOT log raw content. Encrypted at rest via database-level TDE (GCP Cloud SQL).
+  // Subject to GDPR/CCPA — honour right-to-erasure by nulling this field, not deleting the row.
   content          Json         // Anthropic-shaped content blocks (text + tool_use + tool_result)
   modeAtTurn       ChatMode
-  redactionEvents  Json?        // Log of any guard-driven redactions
+  redactionEvents  Json?        // Log of guard-driven PII redactions (see src/lib/cfo-agent/policy/guards.ts)
   createdAt        DateTime     @default(now())
 
   @@index([conversationId, createdAt])
