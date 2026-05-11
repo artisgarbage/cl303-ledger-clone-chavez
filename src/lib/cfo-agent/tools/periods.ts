@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { ToolDefinition } from "./index";
 
 export const periodsGetPnLTool: ToolDefinition = {
-  name: "periods.getPnL",
+  name: "periods_getPnL",
   description:
     "Fetch the Profit & Loss statement for a specific financial period. Returns revenue, COGS, gross profit, gross margin, operating expenses, and net income. Always cite the period and basis (cash or accrual) when presenting these numbers to the user.",
   input_schema: {
@@ -80,16 +80,18 @@ async function periodsGetPnL(
 ): Promise<PeriodsGetPnLOutput> {
   const { periodStart, periodEnd, basis } = input;
 
-  // Parse dates
-  const start = new Date(periodStart);
-  const end = new Date(periodEnd);
+  // Parse dates — use a 24-hour window to tolerate timezone offsets in stored timestamps
+  const startDay = new Date(periodStart);
+  const startDayNext = new Date(startDay.getTime() + 86_400_000);
+  const endDay = new Date(periodEnd);
+  const endDayNext = new Date(endDay.getTime() + 86_400_000);
 
   // Find matching FinancialPeriod
   const period = await prisma.financialPeriod.findFirst({
     where: {
       companyId,
-      periodStart: start,
-      periodEnd: end,
+      periodStart: { gte: startDay, lt: startDayNext },
+      periodEnd: { gte: endDay, lt: endDayNext },
       basis,
     },
     include: {

@@ -9,7 +9,7 @@ import type { ToolDefinition } from "./index";
 import type { ProjectStatus, ProjectClass } from "@prisma/client";
 
 export const projectsListTool: ToolDefinition = {
-  name: "projects.list",
+  name: "projects_list",
   description:
     "List projects with optional filters. Returns project names, client names, status (ACTIVE, COMPLETED, PAUSED, LOST), classification (FUND or FRONTIER), and key dates. Use this to explore what projects exist before diving into profitability details.",
   input_schema: {

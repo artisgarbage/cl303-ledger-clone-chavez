@@ -9,7 +9,7 @@ import type { ToolDefinition } from "./index";
 import type { NarrativeType } from "@prisma/client";
 
 export const narrativeRecentTool: ToolDefinition = {
-  name: "narrative.recent",
+  name: "narrative_recent",
   description:
     "List recently generated financial narratives. Returns titles, types (MONTHLY_SUMMARY, QUARTERLY_REVIEW, etc.), periods covered, and generation dates. Use this to see if a question has already been analyzed in a prior narrative rather than starting from scratch.",
   input_schema: {

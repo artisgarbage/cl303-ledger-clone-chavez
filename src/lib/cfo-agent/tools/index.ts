@@ -45,15 +45,15 @@ export const ALL_TOOLS: ToolDefinition[] = [
 ];
 
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
-  "periods.getPnL": async (companyId: string, input: unknown) => {
+  "periods_getPnL": async (companyId: string, input: unknown) => {
     const { default: handler } = await import("./periods");
     return handler.periodsGetPnL(companyId, input as PeriodsGetPnLInput);
   },
-  "projects.list": async (companyId: string, input: unknown) => {
+  "projects_list": async (companyId: string, input: unknown) => {
     const { default: handler } = await import("./projects");
     return handler.projectsList(companyId, input as ProjectsListInput);
   },
-  "narrative.recent": async (companyId: string, input: unknown) => {
+  "narrative_recent": async (companyId: string, input: unknown) => {
     const { default: handler } = await import("./narrative");
     return handler.narrativeRecent(companyId, input as NarrativeRecentInput);
   },

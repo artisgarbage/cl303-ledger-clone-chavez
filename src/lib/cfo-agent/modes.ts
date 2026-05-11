@@ -32,9 +32,9 @@ export const MODE_DEFINITIONS: Record<ChatMode, ModeDefinition> = {
     description:
       "Framing for prospective clients. No internal cost, margin %, or comp data.",
     restrictedTools: [
-      "people.getTrueCost",
-      "people.getCompensation",
-      "projects.getMarginInternal",
+      "people_getTrueCost",
+      "people_getCompensation",
+      "projects_getMarginInternal",
     ],
     requiresOutputGuard: true,
   },
