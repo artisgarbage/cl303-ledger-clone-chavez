@@ -176,3 +176,33 @@ Replaced `xlsx` library with `exceljs` to eliminate HIGH severity Prototype Poll
 - **Cleanup:** Deleted obsolete `prisma/lib/xlsx-parser.ts` and its test file (old implementation, replaced by main parser)
 - **Testing gap:** No automated tests for exceljs version (seed script is manual execution) - rely on existing integration test data
 - **Compatibility:** ExcelJS preserves all existing QB parser functionality (indent detection, cell value extraction, date range parsing)
+
+## 2026-05-11 — Issue #12 M1: CFO Agent Core Loop (Web Only)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/12  
+**PR:** (pending)  
+**Cost:** ~$0.50 (est)
+
+Built foundational CFO agent (Margot Hale) with web chat interface, 3 tools, conversation persistence.
+
+### Notes
+
+- **Persona implementation:** Margot's voice codified in `src/lib/cfo-agent/persona.ts` - dry, numbers-first, no consulting jargon, pushback on soft numbers
+- **Three mode lenses:** INTERNAL_CFO (default, full data access), PROPOSAL_BIZDEV (client-facing, no cost/margin data), BOARD_INVESTOR (formal, basis labels) - M1 has mode detection stubs, enforcement deferred to M3
+- **Tool-calling loop:** Standard Anthropic SDK pattern with max 5 iterations, tool_use → tool_result → assistant flow
+- **M1 tool registry:** Three tools implemented: `periods.getPnL` (wraps FinancialPeriod queries), `projects.list` (filter by status/classification/client), `narrative.recent` (list existing narratives)
+- **Conversation model:** Conversation + Message tables with full Anthropic content block storage (JSON), mode tracking per turn, cascade delete on conversation removal
+- **Multi-tenant + user isolation:** All `/api/cfo/*` routes verify `companyId` and `userId` match session before allowing access
+- **Web UI:** Sidebar conversation list, ChatPanel with message history, input field; MessageList renders text blocks (tool traces deferred to M2)
+- **Navigation update:** Added "Margot (CFO)" with Bot icon to sidebar nav between People and Reports
+- **Synchronous first:** M1 has no streaming (SSE deferred to M2), simpler testing and debugging
+- **Schema duplicate fixed:** Removed duplicate `accessAudits` relation in User model during migration creation
+- **Migration naming:** `20260511_cfo_agent` follows existing pattern (date prefix, descriptive slug)
+- **Auth helpers reused:** Leveraged existing `requireSession()` helper from SEC-03 work - guarantees non-null companyId
+- **Next.js 16 async params:** All `[id]` routes use `{ params: Promise<{ id: string }> }` pattern and `await params` before destructuring
+- **Tool error handling:** Tool execution errors returned as `is_error: true` in tool_result, model sees error and can retry or explain gracefully
+- **Title generation:** Auto-generate conversation title from first user message (60 char truncate at word boundary)
+- **Empty state UX:** Placeholder welcome screen when no conversation selected, "Start a conversation" CTA
+- **Anthropic model:** Uses `claude-sonnet-4-20250514` (full ID, not shorthand) - matches existing narrative generation code
+- **Budget-conscious scope:** Strict M1 limits (3 tools, no streaming, web only) - M2-M5 deferred to follow-up PRs to stay within budget
+- **No npm install:** Sandbox npm issues persist - tests written but not executed, rely on CI
