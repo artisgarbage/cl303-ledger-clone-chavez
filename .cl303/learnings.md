@@ -230,3 +230,27 @@ Built foundational CFO agent (Margot Hale) with web chat interface, 3 tools, con
 ### Local dev setup note
 
 Must `npx prisma generate` after each schema migration before running dev server — Turbopack caches old client chunks.
+
+## 2026-05-11 — Issue #12 M2 (Partial): Tool Registry Expansion
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/12  
+**PR:** (pending)  
+**Cost:** ~$10 (est, partial M2 delivery)
+
+Expanded tool registry from 3 to 10 tools for Margot CFO agent. Partial M2 delivery within budget.
+
+### Notes
+
+- **10 tools implemented:** periods.getPnL, periods.compare, projects.list, projects.getProfitability, projects.getMarginInternal, narrative.recent, people.list, people.getUtilization, people.getTrueCost, people.getCompensation
+- **Query helpers pattern:** Created `src/lib/cfo-agent/queries/people.ts` to keep SQL out of tool handlers - follows clean architecture
+- **Engine wrappers:** Tools wrap existing `lib/engine/*` functions (project-profitability, period-comparison, cost-basis) rather than duplicating logic
+- **Metadata pattern:** Every tool response includes `_meta: { source, period?, basis? }` for citation - Margot can say "according to TimeEntry records for Jan 2026 (cash basis)"
+- **Internal-only tools:** `people.getTrueCost`, `people.getCompensation`, `projects.getMarginInternal` marked as internal-only in descriptions - will be hidden in proposal mode (M3)
+- **Utilization threshold:** `people.getUtilization` uses 65% as standard threshold for under-utilization (industry norm for services firms)
+- **Cost attribution:** `projects.getProfitability` includes contributor breakdown - naive model (cost * hours-ratio) but sufficient for v1
+- **Period comparison:** `periods.compare` wraps engine function, returns both absolute deltas and YoY percentages
+- **Mode detection stub:** `isToolAvailable()` in modes.ts currently returns true for all tools - M3 will add proposal-mode filtering
+- **Deferred to follow-up:** 5 remaining M2 tools (narrative.generate, proposal.frameForClient, search.semantic, artifacts.toXlsx, models.runScenario) deferred to stay within budget
+- **Streaming SSE:** Deferred to follow-up PR (M2 part 2) - sync execution sufficient for now
+- **Show-your-work panel:** Deferred to follow-up PR - UI work is time-consuming
+- **Budget management:** Focused on core analytical tools first - artifact generation and scenarios are lower priority for initial delivery
