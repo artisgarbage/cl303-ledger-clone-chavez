@@ -8,7 +8,16 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "src/**/*.test.tsx", "prisma/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/lib/utils/comparison.ts", "src/lib/utils/chart-data.ts"],
+      include: [
+        "src/lib/utils/comparison.ts",
+        "src/lib/utils/chart-data.ts",
+        "src/lib/cfo-agent/**/*.ts",
+        "src/app/api/cfo/**/*.ts",
+      ],
+      exclude: [
+        "src/lib/cfo-agent/**/*.test.ts",
+        "src/app/api/cfo/**/*.test.ts",
+      ],
       reporter: ["text", "lcov"],
     },
   },
