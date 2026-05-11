@@ -1,0 +1,13 @@
+diff --git a/node_modules/@anthropic-ai/sdk/src/tsconfig.json b/node_modules/@anthropic-ai/sdk/src/tsconfig.json
+index c550e29..4007f58 100644
+--- a/node_modules/@anthropic-ai/sdk/src/tsconfig.json
++++ b/node_modules/@anthropic-ai/sdk/src/tsconfig.json
+@@ -6,6 +6,7 @@
+   "compilerOptions": {
+     "target": "ES2015",
+     "lib": ["DOM", "DOM.Iterable", "ES2018"],
+-    "moduleResolution": "node"
++    "moduleResolution": "node",
++    "ignoreDeprecations": "5.0"
+   }
+ }

@@ -8,10 +8,11 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "patch-package"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.95.0",
+    "@anthropic-ai/sdk": "^0.95.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/pg": "^8.20.0",
@@ -42,6 +43,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "jsdom": "^29.1.1",
+    "patch-package": "^8.0.1",
     "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5",
