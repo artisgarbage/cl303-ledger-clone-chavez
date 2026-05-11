@@ -165,3 +165,145 @@ async function periodsGetPnL(
 export default {
   periodsGetPnL,
 };
+
+// ============================================================================
+// periods.compare
+// ============================================================================
+
+import { comparePeriods, type PeriodComparison } from "@/lib/engine/period-comparison";
+
+export const periodsCompareTool: ToolDefinition = {
+  name: "periods_compare",
+  description:
+    "Compare two financial periods side-by-side. Returns current vs prior P&L, deltas (absolute and %), and revenue/margin trends. Use this to answer 'how did X compare to Y' questions.",
+  input_schema: {
+    type: "object",
+    properties: {
+      currentStart: {
+        type: "string",
+        description: "Start date of current period (YYYY-MM-DD).",
+      },
+      currentEnd: {
+        type: "string",
+        description: "End date of current period (YYYY-MM-DD).",
+      },
+      priorStart: {
+        type: "string",
+        description: "Start date of prior period (YYYY-MM-DD).",
+      },
+      priorEnd: {
+        type: "string",
+        description: "End date of prior period (YYYY-MM-DD).",
+      },
+      basis: {
+        type: "string",
+        enum: ["CASH", "ACCRUAL"],
+        description: "Accounting basis for both periods.",
+      },
+    },
+    required: [
+      "currentStart",
+      "currentEnd",
+      "priorStart",
+      "priorEnd",
+      "basis",
+    ],
+  },
+};
+
+export interface PeriodsCompareInput {
+  currentStart: string;
+  currentEnd: string;
+  priorStart: string;
+  priorEnd: string;
+  basis: "CASH" | "ACCRUAL";
+}
+
+export interface PeriodsCompareOutput {
+  _meta: {
+    source: string;
+    currentPeriod: string;
+    priorPeriod: string;
+    basis: "CASH" | "ACCRUAL";
+  };
+  current: {
+    totalRevenue: number;
+    totalCOGS: number;
+    grossProfit: number;
+    grossMargin: number;
+    totalOpEx: number;
+    netIncome: number;
+    netMargin: number;
+  };
+  prior: {
+    totalRevenue: number;
+    totalCOGS: number;
+    grossProfit: number;
+    grossMargin: number;
+    totalOpEx: number;
+    netIncome: number;
+    netMargin: number;
+  } | null;
+  deltas: {
+    revenueDelta: number | null; // Absolute
+    revenueYoY: number | null; // Pct change (0.15 = 15% growth)
+    marginDelta: number | null; // Absolute margin point change
+    netIncomeDelta: number | null; // Absolute
+  };
+}
+
+async function periodsCompare(
+  companyId: string,
+  input: PeriodsCompareInput
+): Promise<PeriodsCompareOutput> {
+  const { currentStart, currentEnd, priorStart, priorEnd, basis } = input;
+
+  const comparison = await comparePeriods(
+    companyId,
+    new Date(currentStart),
+    new Date(currentEnd),
+    new Date(priorStart),
+    new Date(priorEnd),
+    basis as AccountingBasis
+  );
+
+  return {
+    _meta: {
+      source: "FinancialPeriod",
+      currentPeriod: `${currentStart} to ${currentEnd}`,
+      priorPeriod: `${priorStart} to ${priorEnd}`,
+      basis,
+    },
+    current: {
+      totalRevenue: comparison.current.totalRevenue,
+      totalCOGS: comparison.current.totalCOGS,
+      grossProfit: comparison.current.grossProfit,
+      grossMargin: comparison.current.grossMargin,
+      totalOpEx: comparison.current.totalOpEx,
+      netIncome: comparison.current.netIncome,
+      netMargin: comparison.current.netMargin,
+    },
+    prior: comparison.prior
+      ? {
+          totalRevenue: comparison.prior.totalRevenue,
+          totalCOGS: comparison.prior.totalCOGS,
+          grossProfit: comparison.prior.grossProfit,
+          grossMargin: comparison.prior.grossMargin,
+          totalOpEx: comparison.prior.totalOpEx,
+          netIncome: comparison.prior.netIncome,
+          netMargin: comparison.prior.netMargin,
+        }
+      : null,
+    deltas: {
+      revenueDelta: comparison.revenueDelta,
+      revenueYoY: comparison.revenueYoY,
+      marginDelta: comparison.marginDelta,
+      netIncomeDelta: comparison.netIncomeDelta,
+    },
+  };
+}
+
+export default {
+  periodsGetPnL,
+  periodsCompare,
+};
