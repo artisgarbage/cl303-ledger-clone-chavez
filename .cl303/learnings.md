@@ -206,3 +206,27 @@ Built foundational CFO agent (Margot Hale) with web chat interface, 3 tools, con
 - **Anthropic model:** Uses `claude-sonnet-4-20250514` (full ID, not shorthand) - matches existing narrative generation code
 - **Budget-conscious scope:** Strict M1 limits (3 tools, no streaming, web only) - M2-M5 deferred to follow-up PRs to stay within budget
 - **No npm install:** Sandbox npm issues persist - tests written but not executed, rely on CI
+- **Tool names:** Anthropic API rejects tool names containing dots — use underscores only (`periods_getPnL` not `periods.getPnL`); pattern is `^[a-zA-Z0-9_-]{1,128}$`
+- **Seed timezone drift:** Dates created with `new Date(dateString)` in local PST context are stored as `07:00 UTC` (winter) / `06:00 UTC` (summer); always use a 24h window (`gte: day, lt: day+1`) instead of exact timestamp match in Prisma queries
+
+## 2026-05-10 — Margot M1 Integration Test
+
+**Commit:** `e16d731`  
+**Status:** Two bugs found and fixed, agent fully functional
+
+### Bugs fixed
+
+- **Tool name dots:** Anthropic rejects `periods.getPnL` — renamed all tool names to use underscores. Check all tool definitions before shipping any new agent that uses the Anthropic tool-use API.
+- **Prisma date window:** Seed stores dates at local midnight (PST), not UTC midnight. Use `gte/lt` 24h window in Prisma for date lookups, not exact timestamp equality. Same pattern applies to any `DateTime` field seeded via `new Date("YYYY-MM-DD")`.
+
+### Verified working
+
+- Auth → session → `/cfo` page, conversation CRUD, multi-tenant IDOR checks all pass
+- `periods_getPnL` returns correct data after date-window fix; Margot correctly refused to fabricate missing 2026 data
+- Multi-turn context preserved across 2+ tool calls in same conversation
+- `narrativesEnabled` column schema drift: was missing from DB — fixed with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
+- `exceljs` not installed in node_modules (was a PR#18 dep) — `npm install exceljs` needed for seed
+
+### Local dev setup note
+
+Must `npx prisma generate` after each schema migration before running dev server — Turbopack caches old client chunks.
