@@ -104,48 +104,92 @@ export function ChatPanel({ conversationId, companyName }: ChatPanelProps) {
 
   if (fetching) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
+      <div
+        className="flex-1 flex items-center justify-center"
+        style={{ background: "var(--background)" }}
+      >
+        <Loader2
+          className="w-7 h-7 animate-spin"
+          style={{ color: "var(--muted)" }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className="flex flex-col h-full"
+      style={{ background: "var(--background)" }}
+    >
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-6 py-4">
-        <h3 className="text-lg font-semibold">Margot — CFO</h3>
-        <p className="text-sm text-gray-600">{companyName}</p>
+      <div
+        className="border-b px-6 py-4 shrink-0"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border)",
+        }}
+      >
+        <h3
+          className="text-sm font-semibold"
+          style={{ color: "var(--foreground)" }}
+        >
+          Margot — CFO
+        </h3>
+        <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+          {companyName}
+        </p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-5"
+        style={{ background: "var(--background)" }}
+      >
         <MessageList messages={messages} />
         <div ref={messagesEndRef} />
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="px-6 py-3 bg-red-50 border-t border-red-200">
-          <p className="text-sm text-red-700">{error}</p>
+        <div
+          className="px-6 py-2.5 border-t text-xs"
+          style={{
+            background: "rgba(239,68,68,0.1)",
+            borderColor: "rgba(239,68,68,0.3)",
+            color: "var(--accent-red)",
+          }}
+        >
+          {error}
         </div>
       )}
 
       {/* Input */}
-      <div className="border-t border-gray-200 bg-white px-6 py-4">
+      <div
+        className="border-t px-6 py-4 shrink-0"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--border)",
+        }}
+      >
         <form onSubmit={handleSubmit} className="flex gap-3">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Margot about financials..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Ask Margot about financials…"
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm outline-none transition-colors"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
             disabled={loading}
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-5 py-2.5 rounded-lg text-sm font-medium text-white flex items-center gap-2 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+            style={{ background: "var(--accent-blue)" }}
           >
             {loading ? (
               <>
