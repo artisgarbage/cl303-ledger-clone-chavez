@@ -19,11 +19,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  ingestAudits IngestAudit[]
-  accessAudits     AccessAudit[]
-  accessAudits AccessAudit[]
+  accounts      Account[]
+  sessions      Session[]
+  ingestAudits  IngestAudit[]
+  accessAudits  AccessAudit[]
+  conversations Conversation[]
 }
 
 enum UserRole {
@@ -81,6 +81,8 @@ model Company {
   settings         CompanySettings?
   ingestAudits     IngestAudit[]
   accessAudits     AccessAudit[]
+  conversations    Conversation[]
+  personaConfig    PersonaConfig?
 }
 
 model CompanySettings {
@@ -349,4 +351,69 @@ model AccessAudit {
   @@index([companyId, createdAt])
   @@index([userId, createdAt])
   @@index([resource, action, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// CFO Agent (Margot Hale) — Conversational financial analysis
+// ---------------------------------------------------------------------------
+
+enum ChatSurface {
+  WEB
+  SLACK
+}
+
+enum ChatMode {
+  INTERNAL_CFO
+  PROPOSAL_BIZDEV
+  BOARD_INVESTOR
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  TOOL
+  SYSTEM
+}
+
+model Conversation {
+  id            String      @id @default(cuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id])
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  surface       ChatSurface
+  mode          ChatMode    @default(INTERNAL_CFO)
+  slackChannel  String?
+  slackThreadTs String?
+  title         String?
+  summary       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  messages Message[]
+
+  @@index([companyId, userId, updatedAt])
+  @@index([slackChannel, slackThreadTs])
+}
+
+model Message {
+  id               String       @id @default(cuid())
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role             MessageRole
+  content          Json         // Anthropic-shaped content blocks (text + tool_use + tool_result)
+  modeAtTurn       ChatMode
+  redactionEvents  Json?        // Log of any guard-driven redactions
+  createdAt        DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model PersonaConfig {
+  id             String   @id @default(cuid())
+  companyId      String   @unique
+  company        Company  @relation(fields: [companyId], references: [id])
+  voiceOverrides Json?    // Per-company persona customizations
+  toolOverrides  Json?    // Tool availability overrides
+  updatedAt      DateTime @updatedAt
 }
