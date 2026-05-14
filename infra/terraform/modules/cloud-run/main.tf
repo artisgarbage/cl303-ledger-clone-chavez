@@ -46,9 +46,18 @@ resource "google_cloud_run_v2_service" "app" {
       }
 
       # ── Non-secret env vars ──────────────────────────────────────────────
-      env { name = "NODE_ENV";               value = "production" }
-      env { name = "NEXT_TELEMETRY_DISABLED"; value = "1" }
-      env { name = "PORT";                   value = "3000" }
+      env {
+        name  = "NODE_ENV"
+        value = "production"
+      }
+      env {
+        name  = "NEXT_TELEMETRY_DISABLED"
+        value = "1"
+      }
+      env {
+        name  = "PORT"
+        value = "3000"
+      }
 
       # ── Secrets from Secret Manager ──────────────────────────────────────
       # The app GSA is granted secretmanager.secretAccessor by the
