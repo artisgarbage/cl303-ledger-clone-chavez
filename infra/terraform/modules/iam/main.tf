@@ -99,8 +99,10 @@ resource "google_project_iam_member" "ci_gke_developer" {
 
 # ---------------------------------------------------------------------------
 # Workload Identity binding: KSA ledger-app in K8s namespace → app GSA
+# Only created when deploying to GKE (k8s_namespace is set).
 # ---------------------------------------------------------------------------
 resource "google_service_account_iam_member" "workload_identity" {
+  count              = var.k8s_namespace != "" ? 1 : 0
   service_account_id = google_service_account.app.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.k8s_namespace}/ledger-app]"
@@ -108,7 +110,18 @@ resource "google_service_account_iam_member" "workload_identity" {
 
 # Same binding for the financials reader GSA
 resource "google_service_account_iam_member" "financials_workload_identity" {
+  count              = var.k8s_namespace != "" ? 1 : 0
   service_account_id = google_service_account.financials_reader.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.k8s_namespace}/ledger-app]"
+}
+
+# ---------------------------------------------------------------------------
+# Cloud Run: CI SA needs run.developer to deploy service updates
+# ---------------------------------------------------------------------------
+resource "google_project_iam_member" "ci_run_developer" {
+  project = var.project_id
+  role    = "roles/run.developer"
+  member  = "serviceAccount:${google_service_account.ci[0].email}"
+  count   = var.env == "prod" ? 1 : 0 # CI SA created at prod apply, used by both envs
 }

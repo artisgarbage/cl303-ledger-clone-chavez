@@ -20,7 +20,12 @@ env:
   PROJECT_ID: codelab303-ledger
   REGION: us-central1
   REGISTRY: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app
-  IMAGE: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app/ledger-app
+  IMAGE: us-central1-docker.pkg.dev/codelab303-ledger/ledger-app/margot-app
+  # Cloud Run service names (Terraform: "${service_name}-${env}")
+  CR_SERVICE_DEV: margot-app-dev
+  CR_SERVICE_PROD: margot-app-prod
+  SQL_CONN_DEV: codelab303-ledger:us-central1:ledger-postgres-dev
+  SQL_CONN_PROD: codelab303-ledger:us-central1:ledger-postgres-prod
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
@@ -136,45 +141,51 @@ jobs:
           workload_identity_provider: "projects/$(gcloud projects describe ${{ env.PROJECT_ID }} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-actions/providers/github"
           service_account: "ledger-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
 
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ledger-cluster-dev
-          location: ${{ env.REGION }}
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Verify required secrets exist in Secret Manager
+      - name: Run Prisma migrations (Cloud Run Job)
         run: |
-          for SECRET in \
-            ledger-database-url-dev \
-            ledger-nextauth-secret-dev \
-            ledger-nextauth-url-dev \
-            ledger-anthropic-api-key-dev \
-            ledger-cron-secret-dev; do
-            gcloud secrets versions access latest --secret="$SECRET" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1 \
-              || { echo "::error::Required secret $SECRET is missing in Secret Manager"; exit 1; }
-          done
+          # Create or update the migration job, then execute it and wait
+          gcloud run jobs create margot-migrate-dev \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --service-account="ledger-app-dev@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --add-cloudsql-instances="${{ env.SQL_CONN_DEV }}" \
+            --set-secrets="DATABASE_URL=ledger-database-url-dev:latest" \
+            --command="node_modules/.bin/prisma" \
+            --args="migrate,deploy" \
+            --max-retries=1 \
+            --project="${{ env.PROJECT_ID }}" \
+            2>/dev/null \
+          || \
+          gcloud run jobs update margot-migrate-dev \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}"
 
-      - name: Install / upgrade Helm chart (dev)
+          gcloud run jobs execute margot-migrate-dev \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --wait
+
+      - name: Deploy to Cloud Run (dev)
         run: |
-          kubectl create namespace ledger-dev --dry-run=client -o yaml | kubectl apply -f -
-
-          helm upgrade --install ledger-app deploy/helm/ledger-app \
-            --namespace ledger-dev \
-            --values deploy/helm/ledger-app/values.yaml \
-            --values deploy/helm/ledger-app/values-dev.yaml \
-            --set image.tag="${{ needs.build.outputs.image_tag }}" \
-            --atomic \
-            --wait \
-            --timeout 10m
+          gcloud run services update "${{ env.CR_SERVICE_DEV }}" \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}"
 
       - name: Smoke test
         run: |
-          sleep 10
-          kubectl run smoke-test --rm -i --restart=Never \
-            --namespace ledger-dev \
-            --image=curlimages/curl:8 \
-            -- curl -sf http://ledger-app.ledger-dev.svc.cluster.local:3000/api/healthz
+          SERVICE_URL=$(gcloud run services describe "${{ env.CR_SERVICE_DEV }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --format="value(status.url)")
+          echo "Smoke-testing $SERVICE_URL"
+          curl -sf "$SERVICE_URL/api/healthz" | tee /dev/stderr | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('status') not in ('ok', 'degraded'):
+              sys.exit(1)
+          "
 
   # ──────────────────────────────────────────────────────────────────────────
   # Deploy to prod (manual approval required)
@@ -195,42 +206,47 @@ jobs:
           workload_identity_provider: "projects/$(gcloud projects describe ${{ env.PROJECT_ID }} --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-actions/providers/github"
           service_account: "ledger-ci@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
 
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ledger-cluster-prod
-          location: ${{ env.REGION }}
-          project_id: ${{ env.PROJECT_ID }}
-
-      - name: Verify required secrets exist in Secret Manager
+      - name: Run Prisma migrations (Cloud Run Job — prod)
         run: |
-          for SECRET in \
-            ledger-database-url-prod \
-            ledger-nextauth-secret-prod \
-            ledger-nextauth-url-prod \
-            ledger-anthropic-api-key-prod \
-            ledger-cron-secret-prod; do
-            gcloud secrets versions access latest --secret="$SECRET" --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1 \
-              || { echo "::error::Required secret $SECRET is missing — failing closed"; exit 1; }
-          done
+          gcloud run jobs create margot-migrate-prod \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --service-account="ledger-app-prod@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --add-cloudsql-instances="${{ env.SQL_CONN_PROD }}" \
+            --set-secrets="DATABASE_URL=ledger-database-url-prod:latest" \
+            --command="node_modules/.bin/prisma" \
+            --args="migrate,deploy" \
+            --max-retries=1 \
+            --project="${{ env.PROJECT_ID }}" \
+            2>/dev/null \
+          || \
+          gcloud run jobs update margot-migrate-prod \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}"
 
-      - name: Install / upgrade Helm chart (prod)
+          gcloud run jobs execute margot-migrate-prod \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --wait
+
+      - name: Deploy to Cloud Run (prod)
         run: |
-          kubectl create namespace ledger-prod --dry-run=client -o yaml | kubectl apply -f -
-
-          helm upgrade --install ledger-app deploy/helm/ledger-app \
-            --namespace ledger-prod \
-            --values deploy/helm/ledger-app/values.yaml \
-            --values deploy/helm/ledger-app/values-prod.yaml \
-            --set image.tag="${{ needs.build.outputs.image_tag }}" \
-            --atomic \
-            --wait \
-            --timeout 15m
+          gcloud run services update "${{ env.CR_SERVICE_PROD }}" \
+            --image="${{ env.IMAGE }}:${{ needs.build.outputs.image_tag }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}"
 
       - name: Smoke test (prod)
         run: |
-          sleep 15
-          kubectl run smoke-test --rm -i --restart=Never \
-            --namespace ledger-prod \
-            --image=curlimages/curl:8 \
-            -- curl -sf http://ledger-app.ledger-prod.svc.cluster.local:3000/api/healthz
+          SERVICE_URL=$(gcloud run services describe "${{ env.CR_SERVICE_PROD }}" \
+            --region="${{ env.REGION }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --format="value(status.url)")
+          echo "Smoke-testing $SERVICE_URL"
+          curl -sf "$SERVICE_URL/api/healthz" | tee /dev/stderr | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('status') not in ('ok', 'degraded'):
+              sys.exit(1)
+          "

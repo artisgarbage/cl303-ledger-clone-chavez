@@ -38,9 +38,3 @@ variable "deletion_protection_sql" {
   type    = bool
   default = true
 }
-variable "k8s_namespace" {
-  type = string
-}
-variable "hostname" {
-  type = string
-}

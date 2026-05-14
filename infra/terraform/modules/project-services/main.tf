@@ -2,6 +2,7 @@ resource "google_project_service" "apis" {
   for_each = toset([
     "compute.googleapis.com",
     "container.googleapis.com",
+    "run.googleapis.com",
     "sqladmin.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudkms.googleapis.com",

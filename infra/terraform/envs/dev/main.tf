@@ -21,6 +21,8 @@ module "kms" {
   depends_on = [module.project_services]
 }
 
+# Network is kept because Cloud SQL is private-IP only and Cloud Run
+# accesses it via Direct VPC Egress through this subnet.
 module "network" {
   source                = "../../modules/network"
   project_id            = var.project_id
@@ -39,25 +41,10 @@ module "iam" {
   project_id            = var.project_id
   region                = var.region
   env                   = var.env
-  k8s_namespace         = var.k8s_namespace
-  gke_cluster_name      = module.gke.cluster_name
+  # k8s_namespace / gke_cluster_name omitted — Cloud Run deployment, no GKE
   artifact_registry_url = module.artifact_registry.registry_url
 
-  # WI pool (PROJECT.svc.id.goog) only exists after GKE cluster is created
-  depends_on = [module.project_services, module.gke]
-}
-
-module "gke" {
-  source              = "../../modules/gke"
-  project_id          = var.project_id
-  region              = var.region
-  env                 = var.env
-  network_id          = module.network.network_id
-  subnet_id           = module.network.subnet_id
-  master_cidr         = var.master_cidr
-  deletion_protection = var.deletion_protection_gke
-
-  depends_on = [module.network, module.project_services]
+  depends_on = [module.project_services]
 }
 
 module "cloud_sql" {
@@ -110,22 +97,30 @@ module "audit_logging" {
   depends_on = [module.project_services]
 }
 
-module "dns_cert" {
-  source          = "../../modules/dns-cert"
-  project_id      = var.project_id
-  region          = var.region
-  env             = var.env
-  hostname        = var.hostname
-  create_dns_zone = true  # zone doesn't exist yet; create it here
+# ---------------------------------------------------------------------------
+# Cloud Run service (replaces GKE + Gateway + Certificate Manager + Cloud DNS)
+# The *.run.app URL is available immediately — no DNS updates required.
+# ---------------------------------------------------------------------------
+module "cloud_run" {
+  source                    = "../../modules/cloud-run"
+  project_id                = var.project_id
+  region                    = var.region
+  env                       = var.env
+  # Placeholder image — CI updates this via `gcloud run services update --image`
+  image                     = "us-docker.pkg.dev/cloudrun/container/hello"
+  service_account_email     = module.iam.app_gsa_email
+  cloud_sql_connection_name = module.cloud_sql.connection_name
+  subnet_id                 = module.network.subnet_id
 
-  depends_on = [module.project_services]
+  depends_on = [module.iam, module.cloud_sql, module.network, module.secret_manager]
 }
 
 # ---------------------------------------------------------------------------
 # Outputs used by CI / bootstrap
 # ---------------------------------------------------------------------------
-output "cluster_name" {
-  value = module.gke.cluster_name
+output "service_url" {
+  value       = module.cloud_run.service_url
+  description = "Cloud Run *.run.app URL. Seed ledger-nextauth-url-dev with this value."
 }
 
 output "sql_connection_name" {

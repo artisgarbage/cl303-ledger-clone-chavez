@@ -18,12 +18,15 @@ variable "github_repo" {
 }
 
 variable "k8s_namespace" {
-  description = "Kubernetes namespace the app runs in"
+  description = "Kubernetes namespace the app runs in. Leave empty when deploying to Cloud Run."
   type        = string
+  default     = ""
 }
 
 variable "gke_cluster_name" {
-  type = string
+  description = "GKE cluster name. Leave empty when deploying to Cloud Run."
+  type        = string
+  default     = ""
 }
 
 variable "artifact_registry_url" {
