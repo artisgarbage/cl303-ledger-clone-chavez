@@ -46,7 +46,6 @@ export const peopleListTool: ToolDefinition = {
 export interface PeopleListInput {
   isActive?: boolean;
   type?: "SALARIED" | "PARTNER" | "CONTRACTOR";
-  role?: string;
 }
 
 export interface PeopleListOutput {
@@ -57,8 +56,7 @@ export interface PeopleListOutput {
   people: Array<{
     id: string;
     name: string;
-    email: string;
-    role: string | null;
+    email: string | null;
     type: "SALARIED" | "PARTNER" | "CONTRACTOR";
     isActive: boolean;
   }>;

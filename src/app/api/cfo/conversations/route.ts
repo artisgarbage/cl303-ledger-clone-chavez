@@ -11,7 +11,9 @@ import { generateTitle } from "@/lib/cfo-agent";
 
 const CreateConversationSchema = z.object({
   surface: z.enum(["WEB", "SLACK"]),
-  mode: z.enum(["INTERNAL_CFO", "PROPOSAL_BIZDEV", "BOARD_INVESTOR"]).optional(),
+  mode: z
+    .enum(["INTERNAL_CFO", "PROPOSAL_BIZDEV", "BOARD_INVESTOR"])
+    .optional(),
   initialMessage: z.string().min(1).max(1000).optional(),
 });
 
@@ -69,7 +71,11 @@ export async function POST(req: NextRequest) {
     const userId = session.user.id!;
 
     const body = await req.json();
-    const { surface, mode = "INTERNAL_CFO", initialMessage } = CreateConversationSchema.parse(body);
+    const {
+      surface,
+      mode = "INTERNAL_CFO",
+      initialMessage,
+    } = CreateConversationSchema.parse(body);
 
     // Generate title from initial message if provided
     const title = initialMessage ? generateTitle(initialMessage) : null;
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid request body", details: error.errors },
+        { error: "Invalid request body", details: error.issues },
         { status: 400 },
       );
     }

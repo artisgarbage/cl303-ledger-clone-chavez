@@ -1,68 +1,118 @@
-import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { MarketingLayout } from "@/components/marketing/MarketingLayout";
+import { Hero } from "@/components/marketing/Hero";
+import { ModesSideBySide } from "@/components/marketing/ModesSideBySide";
+import { TrustStrip } from "@/components/marketing/TrustStrip";
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: "Margot — Your CFO already knows the answer.",
+  description:
+    "Margot is a fractional CFO for creative and dev agencies. She lives inside your books, speaks three audiences, and answers at 2am when the proposal is due.",
+  openGraph: {
+    title: "Margot — Your CFO already knows the answer.",
+    description:
+      "Fractional CFO for creative and dev agencies. Internal, Proposal, and Board modes. No retainer.",
+    images: [{ url: "/og?title=Margot" }],
+  },
+};
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            Ledger App
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            A financial ledger application with real-time system monitoring.
-          </p>
-          
-          {/* Status Page Link */}
-          <div className="w-full p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <Link
-              href="/status"
-              className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium"
+    <MarketingLayout>
+      <Hero />
+
+      {/* Modes showcase */}
+      <section className="border-t border-stone-200 py-20">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-xl mb-12">
+            <p className="text-xs uppercase tracking-wider text-stone-400 font-semibold mb-3">
+              Three modes
+            </p>
+            <h2
+              className="text-3xl font-light text-stone-900 leading-snug"
+              style={{ fontFamily: "var(--font-newsreader)" }}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              View System Status →
-            </Link>
-            <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-              Check the health of all platform services
+              The same financial reality. Three audiences. One Margot.
+            </h2>
+            <p className="mt-3 text-stone-500 text-sm leading-relaxed">
+              Internal mode is for your team. Proposal mode is for winning
+              clients. Board mode is for the investors who expect a CFO. Each
+              one uses the same data; each one speaks a different truth.
             </p>
           </div>
+          <ModesSideBySide />
+          <div className="mt-8">
+            <Link
+              href="/modes"
+              className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+            >
+              See Modes in depth →
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Trust layer */}
+      <section className="border-t border-stone-200 py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-xl mb-12">
+            <p className="text-xs uppercase tracking-wider text-stone-400 font-semibold mb-3">
+              The trust layer
+            </p>
+            <h2
+              className="text-3xl font-light text-stone-900 leading-snug"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              Every number has a source. Every action has a record.
+            </h2>
+            <p className="mt-3 text-stone-500 text-sm leading-relaxed">
+              The cite-the-period-and-basis discipline is not optional copy — it
+              is structural. Margot cannot produce a figure without anchoring it
+              to a time range and an accounting basis.
+            </p>
+          </div>
+          <TrustStrip />
+          <div className="mt-8">
+            <Link
+              href="/security"
+              className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+            >
+              Security overview →
+            </Link>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* Bottom CTA */}
+      <section className="border-t border-stone-200 py-24 text-center">
+        <div className="max-w-xl mx-auto px-6">
+          <h2
+            className="text-4xl font-light text-stone-900 mb-4"
+            style={{ fontFamily: "var(--font-newsreader)" }}
+          >
+            Your books are already telling the story.
+          </h2>
+          <p className="text-stone-500 mb-8">
+            Margot reads them. Start at $49/month — no retainer, no contracts,
+            no setup fee.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/login"
+              className="mkt-accent-bg inline-flex items-center justify-center px-6 py-3 rounded font-medium text-sm"
+            >
+              Start with Margot — $49/mo
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center justify-center px-6 py-3 rounded text-sm text-stone-600 border border-stone-300 hover:border-stone-400 hover:text-stone-900 transition-colors"
+            >
+              View all plans
+            </Link>
+          </div>
+        </div>
+      </section>
+    </MarketingLayout>
   );
 }

@@ -6,7 +6,12 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
-import type { MessageParam, Tool, TextBlock, ToolUseBlock } from "@anthropic-ai/sdk/resources/messages";
+import type {
+  MessageParam,
+  Tool,
+  TextBlock,
+  ToolUseBlock,
+} from "@anthropic-ai/sdk/resources/messages";
 import { prisma } from "@/lib/prisma";
 import { buildSystemPrompt } from "./persona";
 import { getToolsForMode } from "./tools";
@@ -39,9 +44,7 @@ export interface AgentTurnOutput {
 /**
  * Execute one turn of the conversation
  */
-export async function runTurn(
-  input: AgentTurnInput,
-): Promise<AgentTurnOutput> {
+export async function runTurn(input: AgentTurnInput): Promise<AgentTurnOutput> {
   const { conversationId, userMessage, companyId } = input;
 
   // Fetch conversation and messages
@@ -62,7 +65,10 @@ export async function runTurn(
   const context = await buildTurnContext(companyId);
 
   // Build system prompt
-  const systemPrompt = buildSystemPrompt(conversation.mode, context.companyName);
+  const systemPrompt = buildSystemPrompt(
+    conversation.mode,
+    context.companyName,
+  );
 
   // Get tools for current mode
   const tools = getToolsForMode(conversation.mode);
@@ -80,7 +86,7 @@ export async function runTurn(
     } else if (msg.role === "ASSISTANT") {
       messages.push({
         role: "assistant",
-        content: msg.content as Anthropic.Messages.ContentBlock[],
+        content: msg.content as unknown as Anthropic.Messages.ContentBlock[],
       });
     }
     // TOOL and SYSTEM messages are encoded in content blocks, not separate messages
@@ -94,7 +100,8 @@ export async function runTurn(
   });
 
   // Execute loop
-  const toolCalls: Array<{ name: string; input: unknown; output: unknown }> = [];
+  const toolCalls: Array<{ name: string; input: unknown; output: unknown }> =
+    [];
   let iterations = 0;
   let finalText = "";
 
@@ -185,7 +192,12 @@ export async function runTurn(
     if (!hasToolUse) {
       // No more tool use - we're done
       // Persist the final turn
-      await persistTurn(conversationId, userMessage, response.content, conversation.mode);
+      await persistTurn(
+        conversationId,
+        userMessage,
+        response.content,
+        conversation.mode,
+      );
       break;
     }
 
@@ -222,7 +234,8 @@ async function persistTurn(
     data: {
       conversationId,
       role: "ASSISTANT",
-      content: assistantContent as unknown as Record<string, unknown>,
+      content:
+        assistantContent as unknown as import("@prisma/client").Prisma.InputJsonValue,
       modeAtTurn: mode,
     },
   });

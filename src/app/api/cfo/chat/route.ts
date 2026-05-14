@@ -64,15 +64,12 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid request body", details: error.errors },
+        { error: "Invalid request body", details: error.issues },
         { status: 400 },
       );
     }
 
-    if (
-      error instanceof Error &&
-      error.message.includes("ANTHROPIC_API_KEY")
-    ) {
+    if (error instanceof Error && error.message.includes("ANTHROPIC_API_KEY")) {
       return NextResponse.json(
         { error: "AI service unavailable. Contact support." },
         { status: 503 },

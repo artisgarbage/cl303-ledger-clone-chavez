@@ -1,10 +1,10 @@
 /**
  * Audit logging for financial data access and mutations.
- * 
+ *
  * Every read, create, update, or delete of sensitive financial resources
  * is logged to the AccessAudit table for compliance (SOC 2, GDPR) and
  * forensic investigation.
- * 
+ *
  * @module lib/audit
  */
 
@@ -31,10 +31,10 @@ export interface LogAccessParams {
 
 /**
  * Log an access event to the audit trail.
- * 
+ *
  * This function is fire-and-forget — it does not throw or return errors.
  * Audit failures are logged to console but do not block the operation.
- * 
+ *
  * @param params - Audit log parameters
  */
 export async function logAccess(params: LogAccessParams): Promise<void> {
@@ -57,7 +57,7 @@ export async function logAccess(params: LogAccessParams): Promise<void> {
 
 /**
  * Helper: extract metadata from NextRequest for audit logs.
- * 
+ *
  * @param req - Next.js request object
  * @returns Metadata object with routePath, method, ipAddress, userAgent
  */
@@ -86,4 +86,15 @@ export function extractRequestMetadata(req: {
     ipAddress,
     userAgent,
   };
+}
+
+/**
+ * Operational audit log — fire-and-forget structured log to stdout.
+ * Used by routes that need to record operational events (e.g. ingest
+ * start/success/fail) that don't map to the structured AccessAudit table.
+ *
+ * TODO(milestone-1): Route to a structured logging sink (Cloud Logging, etc).
+ */
+export function auditLog(params: Record<string, unknown>): void {
+  console.log("[audit]", JSON.stringify(params));
 }

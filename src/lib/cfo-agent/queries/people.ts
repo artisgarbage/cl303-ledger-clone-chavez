@@ -9,8 +9,7 @@ import { toMonthKey } from "@/lib/utils/dates";
 export interface PersonListItem {
   id: string;
   name: string;
-  email: string;
-  role: string | null;
+  email: string | null;
   type: "SALARIED" | "PARTNER" | "CONTRACTOR";
   isActive: boolean;
 }
@@ -20,7 +19,6 @@ export async function listPeople(
   filters?: {
     isActive?: boolean;
     type?: "SALARIED" | "PARTNER" | "CONTRACTOR";
-    role?: string;
   }
 ): Promise<PersonListItem[]> {
   const where: any = { companyId };
@@ -31,9 +29,6 @@ export async function listPeople(
   if (filters?.type) {
     where.type = filters.type;
   }
-  if (filters?.role) {
-    where.role = { contains: filters.role, mode: "insensitive" };
-  }
 
   const people = await prisma.person.findMany({
     where,
@@ -41,7 +36,6 @@ export async function listPeople(
       id: true,
       name: true,
       email: true,
-      role: true,
       type: true,
       isActive: true,
     },
@@ -83,7 +77,7 @@ export async function getUtilization(
           date: { gte: periodStart, lte: periodEnd },
         },
       },
-      projectAllocations: {
+      allocations: {
         where: {
           project: {
             revenue: {
@@ -123,7 +117,7 @@ export async function getUtilization(
     // Calculate effective rate (revenue attributable to this person / billable hours)
     let effectiveRate: number | null = null;
     if (billableHours > 0) {
-      const projectRevenue = person.projectAllocations
+      const projectRevenue = person.allocations
         .flatMap((a) => a.project.revenue)
         .reduce((sum, r) => sum + r.amount, 0);
       // Simplistic attribution: total project revenue / billable hours on those projects
