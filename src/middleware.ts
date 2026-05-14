@@ -8,7 +8,26 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Public paths
-  const publicPaths = ["/", "/login", "/api/auth"];
+  const publicPaths = [
+    "/",
+    "/login",
+    "/api/auth",
+    "/api/healthz",
+    "/api/status",
+    // Marketing routes
+    "/product",
+    "/modes",
+    "/pricing",
+    "/agents",
+    "/security",
+    "/about",
+    "/blog",
+    "/customers",
+    "/og",
+    "/sitemap.xml",
+    "/robots.txt",
+    "/status",
+  ];
   if (publicPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }

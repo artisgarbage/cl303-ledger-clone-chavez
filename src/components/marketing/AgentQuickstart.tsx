@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const APP_URL =
-  typeof window !== "undefined" ? window.location.origin : "https://margot.so";
+const BASE_URL_PLACEHOLDER = "https://margot.so";
 
-const CURL_EXAMPLE = `curl -X POST ${APP_URL}/api/agent/v1/query \\
+function buildCurlExample(baseUrl: string) {
+  return `curl -X POST ${baseUrl}/api/agent/v1/query \\
   -H "Authorization: Bearer $MARGOT_AGENT_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -13,6 +13,7 @@ const CURL_EXAMPLE = `curl -X POST ${APP_URL}/api/agent/v1/query \\
     "orgId": "org_...",
     "mode": "internal"
   }'`;
+}
 
 const TS_EXAMPLE = `import { createMargotClient } from "@margot/agent-sdk";
 
@@ -35,8 +36,15 @@ type Lang = "curl" | "typescript";
 export function AgentQuickstart() {
   const [lang, setLang] = useState<Lang>("curl");
   const [copied, setCopied] = useState(false);
+  const [curlExample, setCurlExample] = useState(() =>
+    buildCurlExample(BASE_URL_PLACEHOLDER)
+  );
 
-  const code = lang === "curl" ? CURL_EXAMPLE : TS_EXAMPLE;
+  useEffect(() => {
+    setCurlExample(buildCurlExample(window.location.origin));
+  }, []);
+
+  const code = lang === "curl" ? curlExample : TS_EXAMPLE;
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code);
