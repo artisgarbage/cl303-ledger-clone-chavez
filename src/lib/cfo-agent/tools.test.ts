@@ -21,8 +21,9 @@ import { executeTool, getToolsForMode, ALL_TOOLS } from "./tools/index";
 // ─── Tool Registry ───────────────────────────────────────────────────────────
 
 describe("ALL_TOOLS", () => {
-  it("contains exactly three M1 tools", () => {
-    expect(ALL_TOOLS).toHaveLength(3);
+  it("contains all registered tools", () => {
+    // periods (3) + projects (3) + narratives (1) + people (4) = 11
+    expect(ALL_TOOLS).toHaveLength(11);
   });
 
   it("tool names comply with Anthropic naming pattern", () => {
@@ -49,19 +50,24 @@ describe("ALL_TOOLS", () => {
 });
 
 describe("getToolsForMode", () => {
-  it("returns all three tools for INTERNAL_CFO", () => {
+  it("returns all 11 tools for INTERNAL_CFO (no restrictions)", () => {
     const tools = getToolsForMode("INTERNAL_CFO");
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(11);
   });
 
-  it("returns all three tools for PROPOSAL_BIZDEV (M1 tools not restricted)", () => {
+  it("returns 8 tools for PROPOSAL_BIZDEV (3 restricted: trueCost, compensation, marginInternal)", () => {
     const tools = getToolsForMode("PROPOSAL_BIZDEV");
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(8);
+    expect(tools.map((t) => t.name)).not.toContain("people_getTrueCost");
+    expect(tools.map((t) => t.name)).not.toContain("people_getCompensation");
+    expect(tools.map((t) => t.name)).not.toContain(
+      "projects_getMarginInternal",
+    );
   });
 
-  it("returns all three tools for BOARD_INVESTOR", () => {
+  it("returns all 11 tools for BOARD_INVESTOR (no restrictions)", () => {
     const tools = getToolsForMode("BOARD_INVESTOR");
-    expect(tools).toHaveLength(3);
+    expect(tools).toHaveLength(11);
   });
 });
 

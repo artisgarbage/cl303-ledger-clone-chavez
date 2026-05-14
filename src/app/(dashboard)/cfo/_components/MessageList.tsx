@@ -1,13 +1,11 @@
 "use client";
 
 /**
- * MessageList - Render conversation messages
- *
- * M1: Basic text rendering
- * M2: Will add tool call trace visualization
+ * MessageList - Render conversation messages + thinking indicator
  */
 
 import { User, Bot } from "lucide-react";
+import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer";
 
 interface Message {
   id: string;
@@ -18,10 +16,16 @@ interface Message {
 
 interface MessageListProps {
   messages: Message[];
+  isThinking?: boolean;
+  thinkingLabel?: string;
 }
 
-export function MessageList({ messages }: MessageListProps) {
-  if (messages.length === 0) {
+export function MessageList({
+  messages,
+  isThinking,
+  thinkingLabel = "Thinking…",
+}: MessageListProps) {
+  if (messages.length === 0 && !isThinking) {
     return (
       <div className="text-center py-12">
         <p className="text-xs" style={{ color: "var(--muted)" }}>
@@ -62,9 +66,13 @@ export function MessageList({ messages }: MessageListProps) {
                 color: isUser ? "white" : "var(--foreground)",
               }}
             >
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                {text}
-              </p>
+              {isUser ? (
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                  {text}
+                </p>
+              ) : (
+                <MarkdownRenderer content={text} />
+              )}
               <div
                 className="text-[11px] mt-1.5"
                 style={{
@@ -86,12 +94,53 @@ export function MessageList({ messages }: MessageListProps) {
           </div>
         );
       })}
+
+      {/* Thinking indicator */}
+      {isThinking && (
+        <div className="flex gap-3">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+            style={{ background: "var(--surface-2)" }}
+          >
+            <Bot className="w-4 h-4" style={{ color: "var(--accent-blue)" }} />
+          </div>
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span
+                className="text-sm transition-all duration-300"
+                style={{ color: "var(--muted)" }}
+              >
+                {thinkingLabel}
+              </span>
+              <span className="flex gap-1 items-end pb-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full animate-bounce"
+                    style={{
+                      background: "var(--muted)",
+                      animationDelay: `${i * 0.18}s`,
+                      display: "inline-block",
+                    }}
+                  />
+                ))}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Extract text from Anthropic content blocks
+ * Extract text from Anthropic content blocks or plain strings
  */
 function extractText(content: unknown): string {
   if (!content) return "";
@@ -106,4 +155,15 @@ function extractText(content: unknown): string {
   if (typeof content === "string") return content;
 
   return JSON.stringify(content);
+}
+
+interface Message {
+  id: string;
+  role: string;
+  content: unknown;
+  createdAt: string;
+}
+
+interface MessageListProps {
+  messages: Message[];
 }

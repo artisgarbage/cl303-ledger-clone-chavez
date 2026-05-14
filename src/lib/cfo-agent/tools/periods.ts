@@ -7,11 +7,118 @@
 
 import { prisma } from "@/lib/prisma";
 import type { ToolDefinition } from "./index";
+import {
+  comparePeriods,
+  type PeriodComparison,
+} from "@/lib/engine/period-comparison";
+import type { AccountingBasis } from "@prisma/client";
+
+export const periodsListTool: ToolDefinition = {
+  name: "periods_list",
+  description:
+    "List all available financial periods for this company. Call this FIRST before using periods_getPnL or periods_compare — it returns the exact periodStart and periodEnd dates you must pass to those tools. Never guess period dates; always discover them with this tool. Each period includes an isFullYear flag: only full-year periods (Jan 1 – Dec 31) should be presented as annual income statements; partial periods are YTD snapshots only.",
+  input_schema: {
+    type: "object",
+    properties: {
+      basis: {
+        type: "string",
+        enum: ["CASH", "ACCRUAL"],
+        description:
+          "Optional. Filter to only periods with this accounting basis. Omit to return all available periods.",
+      },
+    },
+    required: [],
+  },
+};
+
+export interface PeriodsListInput {
+  basis?: "CASH" | "ACCRUAL";
+}
+
+export interface PeriodsListOutput {
+  _meta: { source: string; count: number };
+  periods: Array<{
+    periodStart: string; // YYYY-MM-DD
+    periodEnd: string; // YYYY-MM-DD
+    basis: "CASH" | "ACCRUAL";
+    isFullYear: boolean; // true only when period spans Jan 1 – Dec 31 of a single year
+    label: string; // e.g. "FY 2025 (Jan 1 – Dec 31, Cash)" or "YTD 2026 (Jan 1 – Apr 15, Cash)"
+  }>;
+}
+
+const MONTH_ABBR = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function formatDateShort(d: Date): string {
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+async function periodsList(
+  companyId: string,
+  input: PeriodsListInput,
+): Promise<PeriodsListOutput> {
+  const { basis } = input;
+
+  const where: { companyId: string; basis?: AccountingBasis } = { companyId };
+  if (basis) where.basis = basis as AccountingBasis;
+
+  const periods = await prisma.financialPeriod.findMany({
+    where,
+    select: { periodStart: true, periodEnd: true, basis: true },
+    orderBy: { periodStart: "asc" },
+  });
+
+  const formatted = periods.map((p) => {
+    const start = p.periodStart.toISOString().slice(0, 10);
+    const end = p.periodEnd.toISOString().slice(0, 10);
+    const startYear = p.periodStart.getUTCFullYear();
+    const endYear = p.periodEnd.getUTCFullYear();
+    const basisLabel = p.basis === "CASH" ? "Cash" : "Accrual";
+
+    // A full calendar year: starts Jan 1 and ends Dec 31 of the same year
+    const isFullYear =
+      startYear === endYear &&
+      p.periodStart.getUTCMonth() === 0 &&
+      p.periodStart.getUTCDate() === 1 &&
+      p.periodEnd.getUTCMonth() === 11 &&
+      p.periodEnd.getUTCDate() === 31;
+
+    const dateRange = `${formatDateShort(p.periodStart)} – ${formatDateShort(p.periodEnd)}`;
+    const label = isFullYear
+      ? `FY ${startYear} (${dateRange}, ${basisLabel})`
+      : `YTD ${endYear} (${dateRange}, ${basisLabel})`;
+
+    return {
+      periodStart: start,
+      periodEnd: end,
+      basis: p.basis as "CASH" | "ACCRUAL",
+      isFullYear,
+      label,
+    };
+  });
+
+  return {
+    _meta: { source: "FinancialPeriod", count: formatted.length },
+    periods: formatted,
+  };
+}
 
 export const periodsGetPnLTool: ToolDefinition = {
   name: "periods_getPnL",
   description:
-    "Fetch the Profit & Loss statement for a specific financial period. Returns revenue, COGS, gross profit, gross margin, operating expenses, and net income. Always cite the period and basis (cash or accrual) when presenting these numbers to the user.",
+    "Fetch the Profit & Loss statement for a specific financial period. The periodStart and periodEnd dates must exactly match a period returned by periods_list — call that tool first if you have not already. Returns revenue, COGS, gross profit, gross margin, operating expenses, and net income. Always cite the period and basis (cash or accrual) when presenting numbers.",
   input_schema: {
     type: "object",
     properties: {
@@ -159,15 +266,9 @@ async function periodsGetPnL(
   return result;
 }
 
-export default {
-  periodsGetPnL,
-};
-
 // ============================================================================
 // periods.compare
 // ============================================================================
-
-import { comparePeriods, type PeriodComparison } from "@/lib/engine/period-comparison";
 
 export const periodsCompareTool: ToolDefinition = {
   name: "periods_compare",
@@ -198,13 +299,7 @@ export const periodsCompareTool: ToolDefinition = {
         description: "Accounting basis for both periods.",
       },
     },
-    required: [
-      "currentStart",
-      "currentEnd",
-      "priorStart",
-      "priorEnd",
-      "basis",
-    ],
+    required: ["currentStart", "currentEnd", "priorStart", "priorEnd", "basis"],
   },
 };
 
@@ -251,7 +346,7 @@ export interface PeriodsCompareOutput {
 
 async function periodsCompare(
   companyId: string,
-  input: PeriodsCompareInput
+  input: PeriodsCompareInput,
 ): Promise<PeriodsCompareOutput> {
   const { currentStart, currentEnd, priorStart, priorEnd, basis } = input;
 
@@ -261,7 +356,7 @@ async function periodsCompare(
     new Date(currentEnd),
     new Date(priorStart),
     new Date(priorEnd),
-    basis as AccountingBasis
+    basis as AccountingBasis,
   );
 
   return {
@@ -301,6 +396,7 @@ async function periodsCompare(
 }
 
 export default {
+  periodsList,
   periodsGetPnL,
   periodsCompare,
 };

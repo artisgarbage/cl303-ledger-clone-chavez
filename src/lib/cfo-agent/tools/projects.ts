@@ -6,7 +6,16 @@
 
 import { prisma } from "@/lib/prisma";
 import type { ToolDefinition } from "./index";
-import type { ProjectStatus, ProjectClass } from "@prisma/client";
+import type {
+  ProjectStatus,
+  ProjectClass,
+  AccountingBasis,
+} from "@prisma/client";
+import {
+  getProjectProfitability,
+  type ProjectProfitability,
+} from "@/lib/engine/project-profitability";
+import { getProjectTrueCost } from "@/lib/engine/cost-basis";
 
 export const projectsListTool: ToolDefinition = {
   name: "projects_list",
@@ -127,17 +136,9 @@ async function projectsList(
   };
 }
 
-export default {
-  projectsList,
-};
-
 // ============================================================================
 // projects.getProfitability
 // ============================================================================
-
-import { getProjectProfitability, type ProjectProfitability } from "@/lib/engine/project-profitability";
-import { getProjectTrueCost } from "@/lib/engine/cost-basis";
-import type { AccountingBasis } from "@prisma/client";
 
 export const projectsGetProfitabilityTool: ToolDefinition = {
   name: "projects_getProfitability",
@@ -205,7 +206,7 @@ export interface ProjectsGetProfitabilityOutput {
 
 async function projectsGetProfitability(
   companyId: string,
-  input: ProjectsGetProfitabilityInput
+  input: ProjectsGetProfitabilityInput,
 ): Promise<ProjectsGetProfitabilityOutput> {
   const { projectId, periodStart, periodEnd, basis = "CASH" } = input;
 
@@ -217,13 +218,13 @@ async function projectsGetProfitability(
     companyId,
     start,
     end,
-    basis as AccountingBasis
+    basis as AccountingBasis,
   );
 
   const project = profitability.find((p) => p.projectId === projectId);
   if (!project) {
     throw new Error(
-      `No profitability data found for project ${projectId} in the period ${periodStart} to ${periodEnd}. The project may not have revenue or time entries in this period.`
+      `No profitability data found for project ${projectId} in the period ${periodStart} to ${periodEnd}. The project may not have revenue or time entries in this period.`,
     );
   }
 
@@ -362,7 +363,7 @@ export interface ProjectsGetMarginInternalOutput {
 
 async function projectsGetMarginInternal(
   companyId: string,
-  input: ProjectsGetMarginInternalInput
+  input: ProjectsGetMarginInternalInput,
 ): Promise<ProjectsGetMarginInternalOutput> {
   // Reuse getProfitability
   const profData = await projectsGetProfitability(companyId, {
@@ -384,7 +385,8 @@ async function projectsGetMarginInternal(
         personName: c.personName,
         hours: c.hours,
         cost: c.cost,
-        utilizationOnProject: profData.totalHours > 0 ? c.hours / profData.totalHours : 0,
+        utilizationOnProject:
+          profData.totalHours > 0 ? c.hours / profData.totalHours : 0,
       })) || [],
   };
 }

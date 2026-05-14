@@ -13,8 +13,10 @@ import { isToolAvailable } from "../modes";
 
 // Import tool definitions
 import {
+  periodsListTool,
   periodsGetPnLTool,
   periodsCompareTool,
+  type PeriodsListInput,
   type PeriodsGetPnLInput,
   type PeriodsCompareInput,
 } from "./periods";
@@ -55,7 +57,8 @@ export type ToolHandler = (
 
 // M1 + M2 tools (10 total in M2 partial delivery)
 export const ALL_TOOLS: ToolDefinition[] = [
-  // Periods (2)
+  // Periods (3)
+  periodsListTool,
   periodsGetPnLTool,
   periodsCompareTool,
   // Projects (3)
@@ -73,6 +76,10 @@ export const ALL_TOOLS: ToolDefinition[] = [
 
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   // Periods
+  periods_list: async (companyId: string, input: unknown) => {
+    const { default: handler } = await import("./periods");
+    return handler.periodsList(companyId, input as PeriodsListInput);
+  },
   periods_getPnL: async (companyId: string, input: unknown) => {
     const { default: handler } = await import("./periods");
     return handler.periodsGetPnL(companyId, input as PeriodsGetPnLInput);
