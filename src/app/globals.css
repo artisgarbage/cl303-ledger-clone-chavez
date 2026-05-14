@@ -68,9 +68,6 @@ body {
   background-color: #fafaf9; /* stone-50 */
   color: #1c1917; /* stone-900 */
 }
-.mkt a {
-  color: inherit;
-}
 .mkt-accent {
   color: var(--color-accent);
 }
