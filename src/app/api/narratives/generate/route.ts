@@ -8,6 +8,8 @@ import {
 } from "@/lib/narrative-builder";
 import { NarrativeType, Prisma } from "@prisma/client";
 import { z } from "zod";
+import { recordUsage } from "@/lib/billing/entitlements";
+import { PlanUpgradeRequired, QuotaExceeded } from "@/lib/billing/errors";
 
 const generateRequestSchema = z.object({
   type: z.nativeEnum(NarrativeType),
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const userId = session.user!.id!;
   const userCompanyId = (session.user as { companyId?: string }).companyId;
   if (!userCompanyId) {
     return NextResponse.json({ error: "No company" }, { status: 400 });
@@ -243,19 +246,38 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // ───────────────────────────────────────────────────────────────────────
+    // BILLING: Record usage AFTER successful generation
+    // Throws QuotaExceeded on FREE plan hard cap.
+    // Allows overage on STARTER+ (tracked for period-close billing).
+    // ───────────────────────────────────────────────────────────────────────
+    const usageResult = await recordUsage(
+      companyId,
+      "NARRATIVE_GENERATED",
+      1,
+      {
+        narrativeId: narrative.id,
+        type: parsed.type,
+        periodStart: parsed.periodStart,
+        periodEnd: parsed.periodEnd,
+      },
+      userId
+    );
 
     // Audit log: AI narrative generation
     await logAccess({
-      userId: session.user!.id!,
+      userId,
       companyId,
-      action: 'create',
-      resource: 'narrative',
+      action: "create",
+      resource: "narrative",
       resourceId: narrative.id,
       metadata: {
         ...extractRequestMetadata(req),
         type: parsed.type,
         periodStart: parsed.periodStart,
         periodEnd: parsed.periodEnd,
+        usageRunningTotal: usageResult.runningTotal,
+        overageUnits: usageResult.overageUnits,
       },
     });
 
@@ -264,8 +286,25 @@ export async function POST(req: NextRequest) {
       title: narrative.title,
       content: narrative.content,
       generatedAt: narrative.generatedAt,
+      // Include usage info for client awareness
+      usage: {
+        runningTotal: usageResult.runningTotal,
+        withinCap: usageResult.withinCap,
+        overageUnits: usageResult.overageUnits,
+      },
     });
   } catch (error) {
+    // Billing-specific errors
+    if (error instanceof QuotaExceeded) {
+      return NextResponse.json(error.toJSON(), {
+        status: error.overageAvailable ? 402 : 429,
+      });
+    }
+
+    if (error instanceof PlanUpgradeRequired) {
+      return NextResponse.json(error.toJSON(), { status: 402 });
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Invalid request", details: error.issues },

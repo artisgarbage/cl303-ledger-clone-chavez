@@ -254,3 +254,59 @@ Expanded tool registry from 3 to 10 tools for Margot CFO agent. Partial M2 deliv
 - **Streaming SSE:** Deferred to follow-up PR (M2 part 2) - sync execution sufficient for now
 - **Show-your-work panel:** Deferred to follow-up PR - UI work is time-consuming
 - **Budget management:** Focused on core analytical tools first - artifact generation and scenarios are lower priority for initial delivery
+
+## 2026-05-15 — Issue #22 M1: Billing Primitives (TIK-013 Milestone 1)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** (pending)  
+**Cost:** ~$15 (est)
+
+Implemented complete billing metering substrate — plans, subscriptions, usage tracking, entitlement enforcement.
+
+### Notes
+
+- **Two-rail pricing model:** Rail A (HUMAN) for agency owners; Rail B (AGENT) for AI platforms — cleanly separated in schema and plan definitions
+- **9 plans total:** 5 human-rail (FREE, STARTER, STUDIO, PRACTICE, ENTERPRISE) + 4 agent-rail (AGENT_DEV, AGENT_PRO, AGENT_SCALE, LLM_FEDERATION)
+- **Pricing source:** All prices and caps directly from `strategy/PRICING_AND_GTM.md` §4 — no invented numbers
+- **Entitlements as JSON:** Plan.entitlementsJson stores full capability set — simpler than normalized tables, easy to version
+- **FREE plan auto-assignment:** Companies without a Subscription row get FREE plan via fallback in `getActivePlan()` — no DB write on read, no backfill needed
+- **Period boundaries:** Use subscription's currentPeriodStart/End if present; else calendar month UTC for FREE plan
+- **Hard cap vs. overage:** FREE plan hard-caps (throws QuotaExceeded, returns 429/402); STARTER+ allows overage (OverageCharge rows written at period-close in M3)
+- **Mode entitlement enforced at turn-time:** `/api/cfo/chat` checks mode entitlement on every request based on plan, not at conversation-creation — allows seamless plan upgrades mid-conversation
+- **Usage recording after success:** `recordUsage()` called AFTER narrative generation or CFO turn completes — never bill for failed work
+- **Audit integration:** All entitlement denials and usage events logged to AccessAudit with structured metadata
+- **Error response shape:** All 402 responses follow standard JSON shape with `error`, `message`, `code`, `requiredPlanSlug`, `upgradeUrl`
+- **Migration safety:** Additive migration — new tables, no FK conflicts, rollback drops 5 tables with no data loss
+- **Seed idempotency:** `seedPlans()` uses upsert by slug — safe to run multiple times
+- **React cache() usage:** `getActivePlan()` wrapped in React `cache()` to avoid repeated DB hits per request
+- **Test coverage:** Full unit test suite for entitlements logic (plan resolution, quota math, overage computation, mode entitlement checks)
+- **M1 scope discipline:** Strict backend-only — no UI changes, no Stripe, no agent endpoints (all M2/M3)
+- **npm install issues persist:** Tests written but not executed in sandbox — rely on CI
+- **date-fns for period calc:** Used `startOfMonth()` / `endOfMonth()` for FREE plan period boundaries (no subscription record)
+- **Metadata enriched:** Usage events include narrative ID, mode, message length for analytics
+
+## 2026-05-15 — cl303-ledger-clone-chavez-issue-22-ticket (engineer)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/6  
+**Cost:** $13.1575
+Automated engineer run completed. PR opened: https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/6
+
+## 2026-05-15 — Issue #22 M1: PR Finalization (engineer session 2)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23  
+**Cost:** ~$2 (PR creation only)
+
+Finalized and opened PR for TIK-013 Milestone 1 billing primitives work.
+
+### Notes
+
+- **Auth environment variable:** Token is `GITHUB_TOKEN` (not `GH_TOKEN`) in this sandbox
+- **Git remote URL pattern:** Must use `https://x-access-token:${GITHUB_TOKEN}@github.com/...` format for push to work
+- **Previous session issue:** Prior engineer session had GH_TOKEN permission issues; this session had GITHUB_TOKEN available
+- **PR creation**: Used `gh pr create` with inline body (heredoc) after temp file approach failed
+- **Branch pushed successfully:** 5 commits from previous M1 implementation session
+- **No code changes this session:** Pure finalization (push + PR creation + docs update)
+- **M1 implementation summary:** 14 files changed, 2169 lines added (schema, entitlements, plan definitions, tests, seed scripts)
+- **Orchestrator requirement:** PR URL must be emitted to stdout for success detection

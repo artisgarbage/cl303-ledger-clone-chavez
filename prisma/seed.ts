@@ -8,12 +8,16 @@ import {
 import bcrypt from "bcryptjs";
 import { seedFinancialData } from "./seed-financials";
 import { seedNarratives } from "./seed-narratives";
+import { seedPlans } from "./seed-plans";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("Seeding Ledger database…");
+
+  // Seed plans first (required for subscriptions)
+  await seedPlans();
 
   // Create company
   const company = await prisma.company.upsert({

@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth-helpers";
 import { handleWebChatTurn } from "@/lib/cfo-agent";
+import { assertMode, recordUsage } from "@/lib/billing/entitlements";
+import { PlanUpgradeRequired, QuotaExceeded } from "@/lib/billing/errors";
 import { z } from "zod";
 
 const ChatRequestSchema = z.object({
@@ -19,6 +21,7 @@ export async function POST(req: NextRequest) {
     // Auth
     const session = await requireSession();
     const companyId = session.user.companyId;
+    const userId = session.user.id;
 
     // Parse body
     const body = await req.json();
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { prisma } = await import("@/lib/prisma");
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { companyId: true, userId: true },
+      select: { companyId: true, userId: true, mode: true },
     });
 
     if (!conversation) {
@@ -45,12 +48,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (conversation.userId !== session.user.id) {
+    if (conversation.userId !== userId) {
       return NextResponse.json(
         { error: "Forbidden: conversation belongs to another user" },
         { status: 403 },
       );
     }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // BILLING: Check mode entitlement
+    // Internal mode: available on all plans
+    // Proposal/Board modes: require STUDIO or higher
+    // ───────────────────────────────────────────────────────────────────────
+    await assertMode(companyId, conversation.mode);
 
     // Execute turn
     const response = await handleWebChatTurn(
@@ -58,9 +68,45 @@ export async function POST(req: NextRequest) {
       companyId,
     );
 
-    return NextResponse.json(response);
+    // ───────────────────────────────────────────────────────────────────────
+    // BILLING: Record usage AFTER successful turn
+    // CFO_TURN is the base metered unit.
+    // Mode-specific usage kinds (MODE_PROPOSAL_USED, MODE_BOARD_USED) deferred to M2.
+    // ───────────────────────────────────────────────────────────────────────
+    const usageResult = await recordUsage(
+      companyId,
+      "CFO_TURN",
+      1,
+      {
+        conversationId,
+        mode: conversation.mode,
+        messageLength: message.length,
+      },
+      userId
+    );
+
+    return NextResponse.json({
+      ...response,
+      // Include usage info for client awareness
+      usage: {
+        runningTotal: usageResult.runningTotal,
+        withinCap: usageResult.withinCap,
+        overageUnits: usageResult.overageUnits,
+      },
+    });
   } catch (error) {
     console.error("[POST /api/cfo/chat] Error:", error);
+
+    // Billing-specific errors
+    if (error instanceof QuotaExceeded) {
+      return NextResponse.json(error.toJSON(), {
+        status: error.overageAvailable ? 402 : 429,
+      });
+    }
+
+    if (error instanceof PlanUpgradeRequired) {
+      return NextResponse.json(error.toJSON(), { status: 402 });
+    }
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
