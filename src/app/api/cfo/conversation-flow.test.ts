@@ -656,3 +656,276 @@ describe("Margot — multi-turn conversation flow", () => {
     });
   });
 });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Billing & Entitlement Integration Tests (M1 Milestone)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe("Billing enforcement", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      vi.mocked(requireSession).mockResolvedValue(SESSION as never);
+      setupPrismaForConversation(null);
+    });
+
+    // ── FREE plan hitting narrative cap → 402 ─────────────────────────────
+
+    it("FREE plan blocks narrative generation after quota exhaustion", async () => {
+      // FREE plan: 5 narratives/month, no overage
+      vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null); // No sub = FREE
+      vi.mocked(prisma.usageEvent.count).mockResolvedValue(5); // Already at cap
+
+      const res = await chatPOST(
+        makeReq(
+          "POST",
+          {
+            conversationId: CONV_ID,
+            message: "Generate a monthly summary for January",
+          },
+          "/chat",
+        ),
+      );
+
+      expect(res.status).toBe(429); // QuotaExceeded
+      const body = await res.json();
+      expect(body.error).toContain("quota");
+    });
+
+    // ── STARTER plan blocked from Proposal mode → 402 ────────────────────
+
+    it("STARTER plan cannot use Proposal mode", async () => {
+      // STARTER plan: modes = ["INTERNAL_CFO"] only
+      vi.mocked(prisma.subscription.findUnique).mockResolvedValue({
+        id: "sub-starter",
+        companyId: COMPANY_ID,
+        planId: "plan-starter",
+        status: "ACTIVE",
+        currentPeriodStart: new Date("2026-01-01"),
+        currentPeriodEnd: new Date("2026-01-31"),
+        cancelAtPeriodEnd: false,
+        trialEndsAt: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        plan: {
+          id: "plan-starter",
+          slug: "STARTER",
+          displayName: "Starter",
+          priceUsdCents: 4900,
+          billingCadence: "MONTHLY",
+          rail: "HUMAN",
+          entitlementsJson: {
+            maxEntities: 1,
+            narrativesPerMonth: 50,
+            cfoTurnsPerMonth: 250,
+            modes: ["INTERNAL_CFO"],
+            seats: 3,
+            imports: ["QB", "CSV"],
+            apiReadEnabled: false,
+            agentRailEnabled: false,
+            overage: {
+              narrative: { unitPriceCents: 50 },
+              cfoTurn: { unitPriceCents: 5 },
+            },
+            support: "EMAIL",
+            sso: false,
+            auditLogExport: false,
+            whiteLabel: false,
+          } as never,
+          isPublic: true,
+          sortOrder: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      } as never);
+
+      // Create conversation in PROPOSAL mode
+      vi.mocked(prisma.conversation.findUnique).mockResolvedValue(
+        makeConversation({ mode: "PROPOSAL_BIZDEV" }) as never,
+      );
+
+      const res = await chatPOST(
+        makeReq(
+          "POST",
+          {
+            conversationId: CONV_ID,
+            message: "What's our margin on the ACME project?",
+          },
+          "/chat",
+        ),
+      );
+
+      expect(res.status).toBe(402); // PlanUpgradeRequired
+      const body = await res.json();
+      expect(body.error).toContain("Proposal mode");
+      expect(body.requiredPlanSlug).toBe("STUDIO");
+      expect(body.upgradeUrl).toContain("/account/billing");
+    });
+
+    // ── STUDIO plan allows all modes and tracks overage ──────────────────
+
+    it("STUDIO plan allows Proposal mode and tracks overage", async () => {
+      // STUDIO plan: all three modes, 500 narratives, overage enabled
+      vi.mocked(prisma.subscription.findUnique).mockResolvedValue({
+        id: "sub-studio",
+        companyId: COMPANY_ID,
+        planId: "plan-studio",
+        status: "ACTIVE",
+        currentPeriodStart: new Date("2026-01-01"),
+        currentPeriodEnd: new Date("2026-01-31"),
+        cancelAtPeriodEnd: false,
+        trialEndsAt: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        plan: {
+          id: "plan-studio",
+          slug: "STUDIO",
+          displayName: "Studio",
+          priceUsdCents: 19900,
+          billingCadence: "MONTHLY",
+          rail: "HUMAN",
+          entitlementsJson: {
+            maxEntities: 3,
+            narrativesPerMonth: 500,
+            cfoTurnsPerMonth: 2000,
+            modes: ["INTERNAL_CFO", "PROPOSAL_BIZDEV", "BOARD_INVESTOR"],
+            seats: 10,
+            imports: ["QB", "CSV", "BANK"],
+            apiReadEnabled: false,
+            agentRailEnabled: false,
+            overage: {
+              narrative: { unitPriceCents: 50 },
+              cfoTurn: { unitPriceCents: 5 },
+            },
+            support: "EMAIL",
+            sso: false,
+            auditLogExport: false,
+            whiteLabel: false,
+          } as never,
+          isPublic: true,
+          sortOrder: 2,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      } as never);
+
+      // 505 CFO turns already used (over cap by 5)
+      vi.mocked(prisma.usageEvent.count).mockResolvedValue(505);
+
+      // Create conversation in PROPOSAL mode
+      vi.mocked(prisma.conversation.findUnique).mockResolvedValue(
+        makeConversation({ mode: "PROPOSAL_BIZDEV" }) as never,
+      );
+
+      mockCreate.mockResolvedValueOnce(
+        textResponse("The ACME project had a 61% margin in Q1."),
+      );
+
+      const res = await chatPOST(
+        makeReq(
+          "POST",
+          {
+            conversationId: CONV_ID,
+            message: "What's our margin on the ACME project?",
+          },
+          "/chat",
+        ),
+      );
+
+      expect(res.status).toBe(200); // Allowed despite being over cap
+      const body = await res.json();
+      expect(body.message).toContain("61%");
+
+      // Usage event should be created
+      expect(prisma.usageEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            companyId: COMPANY_ID,
+            kind: "CFO_TURN",
+            units: 1,
+          }),
+        }),
+      );
+    });
+
+    // ── STUDIO plan allows Board mode ─────────────────────────────────────
+
+    it("STUDIO plan allows Board mode", async () => {
+      vi.mocked(prisma.subscription.findUnique).mockResolvedValue({
+        id: "sub-studio",
+        companyId: COMPANY_ID,
+        planId: "plan-studio",
+        status: "ACTIVE",
+        currentPeriodStart: new Date("2026-01-01"),
+        currentPeriodEnd: new Date("2026-01-31"),
+        cancelAtPeriodEnd: false,
+        trialEndsAt: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        plan: {
+          id: "plan-studio",
+          slug: "STUDIO",
+          displayName: "Studio",
+          priceUsdCents: 19900,
+          billingCadence: "MONTHLY",
+          rail: "HUMAN",
+          entitlementsJson: {
+            maxEntities: 3,
+            narrativesPerMonth: 500,
+            cfoTurnsPerMonth: 2000,
+            modes: ["INTERNAL_CFO", "PROPOSAL_BIZDEV", "BOARD_INVESTOR"],
+            seats: 10,
+            imports: ["QB", "CSV", "BANK"],
+            apiReadEnabled: false,
+            agentRailEnabled: false,
+            overage: {
+              narrative: { unitPriceCents: 50 },
+              cfoTurn: { unitPriceCents: 5 },
+            },
+            support: "EMAIL",
+            sso: false,
+            auditLogExport: false,
+            whiteLabel: false,
+          } as never,
+          isPublic: true,
+          sortOrder: 2,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      } as never);
+
+      vi.mocked(prisma.usageEvent.count).mockResolvedValue(50);
+
+      // Create conversation in BOARD mode
+      vi.mocked(prisma.conversation.findUnique).mockResolvedValue(
+        makeConversation({ mode: "BOARD_INVESTOR" }) as never,
+      );
+
+      mockCreate.mockResolvedValueOnce(
+        textResponse(
+          "The company generated $2.1M in revenue for Q1 2026, with a gross margin of 42.3%.",
+        ),
+      );
+
+      const res = await chatPOST(
+        makeReq(
+          "POST",
+          {
+            conversationId: CONV_ID,
+            message: "Summarize Q1 performance for the board",
+          },
+          "/chat",
+        ),
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.message).toContain("$2.1M");
+    });
+  });
+});

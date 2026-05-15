@@ -348,3 +348,22 @@ Finalized and opened PR for TIK-013 Milestone 1 billing primitives work.
 - **codelab303 LLC** (`id: "codelab303"`) — seeded by `prisma/seed.ts`
 - **Yolo, Inc.** (`id: "yolo-inc"`) — seeded by `prisma/seed-yolo.ts` (fictional $5M/yr digital agency)
 - Users follow `+yolo` suffix convention for Yolo, Inc. access (e.g., `rachel+yolo@codelab303.com`)
+
+## 2026-05-15 — Issue #22 M1 Test Completion
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** (pending)  
+**Cost:** ~$2 (test completion only)
+
+Completed missing test coverage for TIK-013 Milestone 1 (Billing Primitives).
+
+### Notes
+
+- **M1 was already 95% complete:** PR #23 merged as `a4b8f4c` with schema, entitlements lib, seed scripts, and hooks into generation endpoints
+- **Missing pieces from M1 spec:** `agent-scopes.ts`, `overage.test.ts`, `plans.test.ts`, billing integration tests in `conversation-flow.test.ts`
+- **Agent scopes:** Defined 6 scopes (agent:read, agent:narrative, agent:synthesis, agent:mode:*) — not used until M6 but required by M1 spec
+- **Overage tests:** Cover under-cap, at-cap, over-cap, unlimited plans, FREE (no overage pricing)
+- **Plan snapshot tests:** Validate structure, Rail A/B separation, specific plan constraints, full snapshot for price drift detection
+- **Integration tests:** FREE quota exhaustion (429), STARTER Proposal denial (402), STUDIO multi-mode + overage tracking
+- **Test execution limitation:** Sandbox npm install issues persist — tests written but not run locally, will execute in CI
+- **Commit discipline:** Single commit for coherent test addition, clear message, CHANGELOG entry

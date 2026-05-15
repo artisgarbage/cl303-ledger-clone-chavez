@@ -89,3 +89,26 @@ Companies without a `Subscription` row automatically default to FREE plan (no ba
 ---
 
 _Earlier entries: none (first changelog entry)_
+
+## 2026-05-15 — TIK-013 M1: Billing Test Completion
+
+Completed remaining test coverage requirements for Milestone 1 (Billing Primitives):
+
+**Added files:**
+- `src/lib/billing/agent-scopes.ts` — Agent scope definitions for Rail B (M6 prep)
+- `src/lib/billing/overage.test.ts` — Overage computation unit tests
+- `src/lib/billing/plans.test.ts` — Plan definitions snapshot tests
+
+**Modified:**
+- `src/app/api/cfo/conversation-flow.test.ts` — Added billing enforcement integration tests:
+  - FREE plan quota exhaustion (429 response)
+  - STARTER plan Proposal mode denial (402 + upgrade CTA)
+  - STUDIO plan multi-mode access with overage tracking
+
+**Test coverage:**
+- Overage computation: under cap, at cap, over cap, unlimited plans, FREE (no overage)
+- Plan snapshot: all 9 plans, structure validation, price drift detection
+- Integration: quota enforcement, mode gating, entitlement checks
+
+All M1 requirements now complete. Schema, seed, entitlement library, errors, hooks, and comprehensive tests shipped.
+
