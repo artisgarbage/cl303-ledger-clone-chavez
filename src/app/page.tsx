@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { MarketingLayout } from "@/components/marketing/MarketingLayout";
 import { Hero } from "@/components/marketing/Hero";
 import { ModesSideBySide } from "@/components/marketing/ModesSideBySide";
@@ -48,6 +49,116 @@ export default function HomePage() {
               className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
             >
               See Modes in depth →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Product screenshot showcase */}
+      <section className="border-t border-stone-200 py-20 bg-stone-50">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-xl mb-10">
+            <p className="text-xs uppercase tracking-wider text-stone-400 font-semibold mb-3">
+              Inside the product
+            </p>
+            <h2
+              className="text-3xl font-light text-stone-900 leading-snug"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              Everything your agency needs to know. One screen.
+            </h2>
+            <p className="mt-3 text-stone-500 text-sm leading-relaxed">
+              Revenue, margin, forward estimates, and a CFO who explains the
+              delta — all from your live books.
+            </p>
+          </div>
+
+          {/* Primary screenshot */}
+          <div className="rounded-xl overflow-hidden border border-stone-200 shadow-xl mb-6">
+            <Image
+              src="/screenshots/dashboard-kpi.png"
+              alt="Margot dashboard showing $495K April revenue, 39% gross margin, and forward estimates for Yolo, Inc."
+              width={2880}
+              height={1800}
+              className="w-full"
+              unoptimized
+              priority
+            />
+          </div>
+
+          {/* Secondary 3-up row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg overflow-hidden border border-stone-200 shadow-sm bg-white">
+              <div className="overflow-hidden">
+                <Image
+                  src="/screenshots/cfo-chat.png"
+                  alt="Margot CFO chat answering a question about April vs March 2026 revenue"
+                  width={2880}
+                  height={1800}
+                  className="w-full object-cover object-top"
+                  style={{ maxHeight: "220px" }}
+                  unoptimized
+                />
+              </div>
+              <div className="px-4 py-3 border-t border-stone-100">
+                <p className="text-sm font-medium text-stone-800">Ask Margot</p>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Plain-English answers, cited to the period
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg overflow-hidden border border-stone-200 shadow-sm bg-white">
+              <div className="overflow-hidden">
+                <Image
+                  src="/screenshots/reports.png"
+                  alt="Narrative report generation — Monthly Summary, Quarterly Review, and custom queries"
+                  width={2880}
+                  height={1800}
+                  className="w-full object-cover object-top"
+                  style={{ maxHeight: "220px" }}
+                  unoptimized
+                />
+              </div>
+              <div className="px-4 py-3 border-t border-stone-100">
+                <p className="text-sm font-medium text-stone-800">
+                  Narrative Reports
+                </p>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Board-ready summaries in one click
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg overflow-hidden border border-stone-200 shadow-sm bg-white">
+              <div className="overflow-hidden">
+                <Image
+                  src="/screenshots/people.png"
+                  alt="Team and utilization view showing headcount, types, and effective rates"
+                  width={2880}
+                  height={1800}
+                  className="w-full object-cover object-top"
+                  style={{ maxHeight: "220px" }}
+                  unoptimized
+                />
+              </div>
+              <div className="px-4 py-3 border-t border-stone-100">
+                <p className="text-sm font-medium text-stone-800">
+                  Team &amp; Utilization
+                </p>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Payroll costs mapped to projects
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/product"
+              className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+            >
+              Explore all features →
             </Link>
           </div>
         </div>

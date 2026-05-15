@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { TrustStrip } from "@/components/marketing/TrustStrip";
 
 export const metadata: Metadata = {
@@ -18,6 +19,12 @@ const SECTIONS = [
       "Every transaction is stored with its period, basis (cash or accrual), and the project or cost center it belongs to. There is no ambiguity in the data model — a number either has a source or it does not exist.",
       "QuickBooks import, bank feed, and manual CSV are all supported. Imports are idempotent — running them twice does not create duplicates. The ledger is the moat; Margot is what makes it useful.",
     ],
+    screenshot: {
+      src: "/screenshots/dashboard-kpi.png",
+      alt: "Margot dashboard showing $495K April revenue, 39% gross margin, forward estimates and trend charts",
+      caption:
+        "Live KPI tiles, forward estimates, and trend charts — all from your books.",
+    },
   },
   {
     id: "persona",
@@ -31,6 +38,12 @@ const SECTIONS = [
       text: "Q1 gross margin came in at 38% — that's six points below your trailing-twelve-month average and the proximate cause is contractor spend on the Acme rebuild.",
       attribution: "Margot, Internal mode",
     },
+    screenshot: {
+      src: "/screenshots/cfo-chat.png",
+      alt: "Margot CFO chat showing a revenue comparison between April and March 2026 with detailed margin analysis",
+      caption:
+        "Margot answers in plain English, cites the period, and explains the delta.",
+    },
   },
   {
     id: "narratives",
@@ -40,6 +53,12 @@ const SECTIONS = [
       "Margot generates monthly summaries, quarterly reviews, year-over-year analyses, margin deep-dives, and project profitability reports — all anchored to the data in your ledger.",
       "Every narrative cites the period it covers and the accounting basis. That citation trail is what makes a Margot narrative suitable for a board deck, a client proposal, or an investor data room — not just internal Slack.",
     ],
+    screenshot: {
+      src: "/screenshots/reports.png",
+      alt: "Report generation UI showing Monthly Summary, Quarterly Review, Year-over-Year and other report types, with April 2026 CFO Summary in history",
+      caption:
+        "Six report types. One click. Every figure sourced to a period and basis.",
+    },
   },
   {
     id: "imports",
@@ -132,6 +151,23 @@ export default function ProductPage() {
                       — {s.quote.attribution}
                     </footer>
                   </blockquote>
+                )}
+                {"screenshot" in s && s.screenshot && (
+                  <div className="mt-10">
+                    <div className="rounded-xl overflow-hidden border border-stone-200 shadow-lg">
+                      <Image
+                        src={s.screenshot.src}
+                        alt={s.screenshot.alt}
+                        width={2880}
+                        height={1800}
+                        className="w-full"
+                        unoptimized
+                      />
+                    </div>
+                    <p className="mt-3 text-xs text-stone-400 text-center">
+                      {s.screenshot.caption}
+                    </p>
+                  </div>
                 )}
                 {s.id === "trust" && (
                   <div className="mt-8">
