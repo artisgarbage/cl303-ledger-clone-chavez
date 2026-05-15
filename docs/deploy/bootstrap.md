@@ -5,7 +5,7 @@ One-time setup steps. Run these in order before `terraform apply`.
 ## 0. Prerequisites
 
 ```sh
-brew install google-cloud-sdk terraform helm git-filter-repo
+brew install google-cloud-sdk terraform git-filter-repo
 gcloud auth login
 gcloud config set project codelab303-ledger
 ```
@@ -125,7 +125,7 @@ gcloud secrets versions add ledger-nextauth-secret-dev \
   --project codelab303-ledger
 
 gcloud secrets versions add ledger-nextauth-url-dev \
-  --data-file=<(echo -n "https://ledger-dev.codelab303.io") \
+  --data-file=<(echo -n "https://margot-app-dev-aywfwftmeq-uc.a.run.app") \
   --project codelab303-ledger
 
 # Paste your NEW Anthropic key (rotated in step 1):
@@ -142,55 +142,67 @@ gcloud secrets versions add ledger-cron-secret-dev \
 
 ---
 
-## 7. Install External Secrets Operator
+## 7. Enable Cloud Run APIs
 
 ```sh
-gcloud container clusters get-credentials ledger-cluster-dev \
-  --region us-central1 --project codelab303-ledger
-
-helm repo add external-secrets https://charts.external-secrets.io
-helm upgrade --install external-secrets external-secrets/external-secrets \
-  -n external-secrets --create-namespace \
-  --set installCRDs=true
-```
-
----
-
-## 8. First Helm deploy (dev)
-
-```sh
-IMAGE_TAG=$(git rev-parse HEAD)
-CERT_MAP_ID=$(cd infra/terraform/envs/dev && terraform output -raw certificate_map_id)
-
-helm upgrade --install ledger-app deploy/helm/ledger-app \
-  --namespace ledger-dev --create-namespace \
-  --values deploy/helm/ledger-app/values.yaml \
-  --values deploy/helm/ledger-app/values-dev.yaml \
-  --set image.tag="$IMAGE_TAG" \
-  --set gateway.certificateMapId="$CERT_MAP_ID" \
-  --atomic --wait --timeout 15m
-```
-
----
-
-## 9. Update DNS A record
-
-```sh
-GW_IP=$(kubectl get gateway ledger-app-gateway -n ledger-dev \
-  -o jsonpath='{.status.addresses[0].value}')
-
-gcloud dns record-sets update ledger-dev.codelab303.io. \
-  --zone=codelab303-io \
-  --type=A \
-  --ttl=300 \
-  --rrdatas="$GW_IP" \
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
   --project codelab303-ledger
 ```
 
 ---
 
-## 10. Repeat for prod
+## 8. First Cloud Run deploy (dev)
 
-Run steps 5–9 using `envs/prod`, `values-prod.yaml`, namespace `ledger-prod`,
-cluster `ledger-cluster-prod`, and secrets suffixed `-prod`.
-Prod deploy requires manual approval in GitHub → Environments → prod.
+```sh
+# Build and push image via Cloud Build
+gcloud builds submit \
+  --tag us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest \
+  --project codelab303-ledger .
+
+# Create the Cloud Run service (first time)
+gcloud run deploy margot-app-dev \
+  --image us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest \
+  --region us-central1 \
+  --project codelab303-ledger \
+  --allow-unauthenticated
+
+# Create the migrate Cloud Run Job
+gcloud run jobs create margot-migrate-dev \
+  --image us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest \
+  --command="npx" --args="prisma,migrate,deploy" \
+  --region us-central1 --project codelab303-ledger
+
+# Run migrations
+gcloud run jobs execute margot-migrate-dev \
+  --region us-central1 --project codelab303-ledger --wait
+```
+
+---
+
+## 9. Verify
+
+```sh
+curl -sf https://$(gcloud run services describe margot-app-dev \
+  --region us-central1 --project codelab303-ledger \
+  --format='value(status.url)')/api/healthz | jq .
+```
+
+---
+
+## 10. Seed plans and initial data
+
+```sh
+# Open Cloud SQL authorized networks temporarily
+gcloud sql instances patch ledger-postgres-dev \
+  --authorized-networks="$(curl -sf https://checkip.amazonaws.com)/32" \
+  --project=codelab303-ledger --quiet
+
+DATABASE_URL="postgresql://ledger_app_dev:PASSWORD@34.60.4.43:5432/ledger_dev?ssl=true" \
+  NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx prisma/seed.ts
+DATABASE_URL="postgresql://ledger_app_dev:PASSWORD@34.60.4.43:5432/ledger_dev?ssl=true" \
+  NODE_TLS_REJECT_UNAUTHORIZED=0 npx tsx prisma/seed-yolo.ts
+
+# Clear authorized networks when done
+gcloud sql instances patch ledger-postgres-dev \
+  --clear-authorized-networks --project=codelab303-ledger --quiet
+```

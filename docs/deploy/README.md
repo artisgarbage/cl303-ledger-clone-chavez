@@ -12,16 +12,20 @@
 
 ```sh
 # Health check
-curl -sf https://ledger.codelab303.io/api/healthz | jq .
+curl -sf https://margot-app-dev-aywfwftmeq-uc.a.run.app/api/healthz | jq .
 
 # Current deploy status
-helm status ledger-app -n ledger-prod
+gcloud run services describe margot-app-dev --region us-central1 --project codelab303-ledger
 
-# Rollback
-helm rollback ledger-app <REVISION> -n ledger-prod --wait
+# Rollback — route traffic to a previous revision
+gcloud run services update-traffic margot-app-dev \
+  --to-revisions=<REVISION_NAME>=100 \
+  --region us-central1 --project codelab303-ledger
 
 # View logs
-kubectl logs -n ledger-prod -l app.kubernetes.io/name=ledger-app -c ledger-app --tail=50
+gcloud logging read \
+  "resource.type=cloud_run_revision AND resource.labels.service_name=margot-app-dev" \
+  --project=codelab303-ledger --limit=50 --order=desc
 ```
 
 ## Repository layout
@@ -38,10 +42,7 @@ deploy/helm/ledger-app/
   values.yaml          # defaults
   values-dev.yaml      # dev overrides
   values-prod.yaml     # prod overrides
-  templates/           # K8s manifests (Deployment, Service, Gateway, Jobs, ESO, HPA, PDB, NP)
-
-.github/workflows/
-  deploy.yml           # CI: test → build → dev (auto) → prod (manual approval)
+  templates/           # GKE manifests (dormant — active deploy is Cloud Run)
 
 docs/deploy/           # this directory
 ```

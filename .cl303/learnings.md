@@ -295,7 +295,7 @@ Automated engineer run completed. PR opened: https://github.com/artisgarbage/cl3
 ## 2026-05-15 — Issue #22 M1: PR Finalization (engineer session 2)
 
 **Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
-**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23  
+**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23 (squash-merged as `a4b8f4c`)  
 **Cost:** ~$2 (PR creation only)
 
 Finalized and opened PR for TIK-013 Milestone 1 billing primitives work.
@@ -310,3 +310,41 @@ Finalized and opened PR for TIK-013 Milestone 1 billing primitives work.
 - **No code changes this session:** Pure finalization (push + PR creation + docs update)
 - **M1 implementation summary:** 14 files changed, 2169 lines added (schema, entitlements, plan definitions, tests, seed scripts)
 - **Orchestrator requirement:** PR URL must be emitted to stdout for success detection
+
+## 2026-05-15 — Post-merge stabilization + Cloud Run deploy
+
+**Commits:** `c4fd47e`, `d0ea67a`  
+**Status:** All 267 tests passing. Live on Cloud Run.
+
+### Key fixes applied post-merge
+
+- **Prisma import path:** PR #23 used `@/lib/db`; codebase standard is `@/lib/prisma`. Check imports immediately when merging a PR that adds new Prisma calls.
+- **Optional chaining on overage:** `entitlements.overage?.narrative` and `entitlements.overage?.cfoTurn` — unlimited plans return `undefined` for overage field; always optional-chain.
+- **Vitest mock must match full API:** After merging billing code, the shared `@/lib/prisma` mock factory in test files needed `subscription.findUnique`, `usageEvent.count`, and `usageEvent.create` added. `vi.clearAllMocks()` in `beforeEach` wipes mock implementations; must reset defaults after each clear.
+- **Conversation mock missing `mode` field:** `assertMode()` reads `conversation.mode` from DB; Prisma `select` must include `{ mode: true }` and test mocks must include `mode: "INTERNAL_CFO"`.
+- **PrismaClient instantiation:** ALL PrismaClient usage in this repo requires the driver adapter pattern:
+  ```ts
+  import { PrismaPg } from "@prisma/adapter-pg";
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  const prisma = new PrismaClient({ adapter });
+  ```
+  Bare `new PrismaClient()` will throw `PrismaClientInitializationError`.
+- **Prisma generate required:** After adding new models to `schema.prisma`, must run `npx prisma generate` locally before running seed scripts or tests.
+- **`Prisma.InputJsonValue` cast:** TypeScript strict mode rejects `Record<string, unknown>` for Prisma JSON fields. Cast: `(metadata || {}) as import("@prisma/client").Prisma.InputJsonValue`.
+- **Cloud Build tsc:** The Docker build runs `next build` which does type-checking. Local `tsc --noEmit` may fail with unrelated Node version issues (`Cannot find module '../lib/tsc.js'`); use `npm run build` to verify instead.
+
+### Cloud Run deployment facts
+
+- **Service:** `margot-app-dev` (us-central1), project `codelab303-ledger`
+- **Live URL:** `https://margot-app-dev-aywfwftmeq-uc.a.run.app`
+- **Latest revision (as of 2026-05-15):** `margot-app-dev-00011-qhg`
+- **Migrate job:** `margot-migrate-dev` — run manually before each deploy
+- **Build command:** `gcloud builds submit --tag us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest --project codelab303-ledger .`
+- **Cloud SQL:** `ledger-postgres-dev`, public IP `34.60.4.43`. Authorized networks are empty at rest — open temporarily to your IP for local seeding, then clear.
+- **DATABASE_URL format for local DB access:** `postgresql://ledger_app_dev:PASSWORD@34.60.4.43:5432/ledger_dev?ssl=true` with `NODE_TLS_REJECT_UNAUTHORIZED=0`
+
+### Test companies
+
+- **codelab303 LLC** (`id: "codelab303"`) — seeded by `prisma/seed.ts`
+- **Yolo, Inc.** (`id: "yolo-inc"`) — seeded by `prisma/seed-yolo.ts` (fictional $5M/yr digital agency)
+- Users follow `+yolo` suffix convention for Yolo, Inc. access (e.g., `rachel+yolo@codelab303.com`)

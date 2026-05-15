@@ -6,7 +6,7 @@ All notable changes to the Margot/Ledger platform.
 
 ## 2026-05-15 — Milestone 1: Billing Primitives
 
-**PR:** (pending)  
+**PR:** [#23](https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23) (squash-merged as `a4b8f4c`)  
 **Scope:** Plans, subscriptions, usage metering, entitlement enforcement
 
 ### Added
@@ -66,6 +66,20 @@ Run `npx prisma migrate dev` to apply `20260515_add_billing_primitives`.
 Run `npm run db:seed` to populate plans.
 
 Companies without a `Subscription` row automatically default to FREE plan (no backfill needed).
+
+---
+
+## 2026-05-15 — Cloud Run migration + seed users
+
+**Commits:** `d0ea67a`, `c4fd47e`
+
+### Changed
+
+- **Deployment**: Migrated from GKE/Helm to Cloud Run (`margot-app-dev`, `us-central1`). Cloud Build handles image builds. GKE Helm manifests remain in `deploy/helm/` but are dormant.
+- **DB migration**: `20260515_add_billing_primitives` applied to production via `npx prisma migrate deploy`.
+- **Plans seeded**: 9 plans (FREE → LLM_FEDERATION) upserted via `prisma/seed-plans.ts`.
+- **Admin users**: `rachel@codelab303.com`, `gavin@codelab303.com` added as ADMIN to both `codelab303` and `yolo-inc` companies.
+- **TS fix**: `metadata` field in `entitlements.ts` cast to `Prisma.InputJsonValue` to satisfy strict JSON type checking.
 
 ### Testing
 

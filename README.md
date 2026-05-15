@@ -2,7 +2,7 @@
 
 Financial analytics and AI-powered reporting for professional-services agencies. Built on Next.js 16, PostgreSQL, and Claude AI.
 
-**Production:** https://ledger-dev.codelab303.io  
+**Production (dev):** https://margot-app-dev-aywfwftmeq-uc.a.run.app  
 **Local dev:** http://localhost:3000
 
 ---
@@ -15,6 +15,7 @@ Financial analytics and AI-powered reporting for professional-services agencies.
 - **QuickBooks import** — XLSX ingestion pipeline with audit trail (`IngestAudit`)
 - **AI narratives** — opt-in Claude-generated financial summaries; line-item names are redacted before transmission (see [docs/security/ai-egress.md](docs/security/ai-egress.md))
 - **Margot — CFO agent** — conversational AI CFO at `/cfo`; tool-calling loop over real financial data; three audience modes (Internal, Proposal/BizDev, Board/Investor)
+- **Billing & entitlements** — plan catalog (9 plans across Human and Agent rails), quota enforcement, usage metering; 402 responses on limit breach
 - **System status** — `/status` page with live health checks for DB and AI services
 
 ---
@@ -32,9 +33,11 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
   npx prisma migrate deploy
 npx prisma generate
 
-# 3. Seed with sample financial data
+# 3. Seed with sample financial data (codelab303 LLC + Yolo, Inc.)
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
   npx tsx prisma/seed.ts
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
+  npx tsx prisma/seed-yolo.ts
 
 # 4. Start dev server
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
@@ -42,23 +45,30 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
   npm run dev
 ```
 
-Login: `anthony@codelab303.com` / `ledger2026!`
+Test companies:
+
+- **codelab303 LLC**: `anthony@codelab303.com` / `ledger2026!`
+- **Yolo, Inc.**: `anthony+yolo@codelab303.com` / `ledger2026!`
 
 ---
 
 ## Running tests
 
 ```bash
-# All tests
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" npx vitest run
+# All tests (267 tests, all mocked — no live DB required)
+npx vitest run
 
-# CFO agent + API routes (109 tests)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
-  npx vitest run src/lib/cfo-agent/ src/app/api/cfo/ --reporter=verbose
+# CFO agent + API routes only
+npx vitest run src/lib/cfo-agent/ src/app/api/cfo/ --reporter=verbose
+
+# Billing entitlements only
+npx vitest run src/lib/billing/ --reporter=verbose
+
+# Watch mode
+npx vitest
 
 # With coverage
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/ledger" \
-  npx vitest run --coverage
+npx vitest run --coverage
 ```
 
 ---
@@ -73,6 +83,10 @@ src/
     api/             # Route handlers (all auth-required; companyId-scoped)
     status/          # Public health status page
   lib/
+    billing/         # Plan catalog, entitlements, quota, usage metering
+      plans.ts       # 9 plan definitions (Human rail: FREE–ENTERPRISE; Agent rail: AGENT_DEV–LLM_FEDERATION)
+      entitlements.ts# getActivePlan, assertEntitlement, assertMode, checkQuota, recordUsage
+      errors.ts      # PlanUpgradeRequired, QuotaExceeded, EntitlementDenied
     cfo-agent/       # Margot — conversational CFO (Anthropic tool-use loop)
       tools/         # periods_getPnL, projects_list, narrative_recent, people_*
       context/       # Per-turn context builder
@@ -90,40 +104,41 @@ src/
 
 prisma/
   schema.prisma      # Full data model
-  seed.ts            # Sample codelab303 LLC data (2023–2026 P&L)
+  seed.ts            # codelab303 LLC data (2023–2026 P&L)
+  seed-yolo.ts       # Yolo, Inc. data (fictional $5M/yr digital agency)
+  seed-plans.ts      # Billing plan catalog (9 plans) — runs inside seed.ts
 
-infra/terraform/     # GCP infrastructure (GKE, Cloud SQL, KMS, IAM, DNS)
-deploy/helm/         # Kubernetes manifests (Deployment, Gateway, ESO, Jobs, HPA, PDB, NP)
+infra/terraform/     # GCP infrastructure (Cloud SQL, KMS, IAM, Artifact Registry, DNS)
+deploy/helm/         # GKE Helm manifests (dormant — active deploy is Cloud Run)
 docs/
   deploy/            # Bootstrap, architecture, runbook, incident response
   security/          # Audit report, AI egress policy, SEC-03 migration guide
   environments.md    # Local dev + production environment reference
 ```
 
-Key data models: `Company`, `User`, `FinancialPeriod`, `LineItem`, `Project`, `Person`, `CompensationRecord`, `TimeEntry`, `Allocation`, `Narrative`, `IngestAudit`, `Conversation`, `Message`, `AccessAudit`.
+Key data models: `Company`, `User`, `FinancialPeriod`, `LineItem`, `Project`, `Person`, `CompensationRecord`, `TimeEntry`, `Allocation`, `Narrative`, `IngestAudit`, `Conversation`, `Message`, `AccessAudit`, `Plan`, `Subscription`, `UsageEvent`, `OverageCharge`, `AgentIdentity`.
 
 ---
 
 ## Deployment
 
-Deployed to GCP GKE via Helm. Images tagged by git SHA and pushed to Artifact Registry.
+Deployed to GCP Cloud Run (`margot-app-dev`, `us-central1`). Images are built via Cloud Build and pushed to Artifact Registry.
 
 ```bash
-IMAGE_TAG=$(git rev-parse HEAD)
-IMAGE="us-central1-docker.pkg.dev/codelab303-ledger/ledger-app/ledger-app:${IMAGE_TAG}"
+# Build + push image
+gcloud builds submit \
+  --tag us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest \
+  --project codelab303-ledger .
 
-docker build --platform linux/amd64 -t "$IMAGE" .
-docker push "$IMAGE"
+# Deploy new revision
+gcloud run deploy margot-app-dev \
+  --image us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev:latest \
+  --region us-central1 \
+  --project codelab303-ledger
 
-helm upgrade --install ledger-app deploy/helm/ledger-app \
-  --namespace ledger-dev \
-  --create-namespace \
-  -f deploy/helm/ledger-app/values.yaml \
-  -f deploy/helm/ledger-app/values-dev.yaml \
-  --set image.tag="$IMAGE_TAG" \
-  --set gateway.certificateMapId="ledger-cert-map-dev" \
-  --set cloudSql.connectionName="codelab303-ledger:us-central1:ledger-postgres-dev" \
-  --wait --timeout 15m
+# Run DB migrations (Cloud Run Job)
+gcloud run jobs execute margot-migrate-dev \
+  --region us-central1 --project codelab303-ledger --wait
 ```
 
 Full deploy guide: **[docs/deploy/README.md](docs/deploy/README.md)**
@@ -141,4 +156,5 @@ Key controls:
 - AI narrative opt-in required (`CompanySettings.narrativesEnabled`); line-item names redacted before Anthropic transmission
 - Access audit log (`AccessAudit` table) for all financial data reads
 - `prisma migrate deploy` (not `db push`) in container entrypoint
-- No SA key files; GKE Workload Identity + ESO for secrets
+- Billing entitlement enforcement on `/api/cfo/chat` and `/api/narratives/generate`; 402 on quota breach
+- No SA key files; Cloud Run service identity + Secret Manager for secrets

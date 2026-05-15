@@ -2,10 +2,10 @@
 
 ## Overview
 
-Single-tenant SaaS financial platform deployed on GCP. One GKE Autopilot
-cluster per environment (dev, prod), private VPC, Cloud SQL Postgres 16,
-GCS for raw financial file storage. All infrastructure is reproducible via
-Terraform; all workload config is expressed as Helm values.
+Single-tenant SaaS financial platform deployed on GCP Cloud Run. The active
+environment is `margot-app-dev` (Cloud Run service, `us-central1`), backed by
+Cloud SQL Postgres 16 and Secret Manager. All infrastructure is reproducible
+via Terraform. GKE Helm manifests exist in `deploy/helm/` but are dormant.
 
 ## Component Map
 
@@ -13,37 +13,36 @@ Terraform; all workload config is expressed as Helm values.
 Internet
   │
   ▼
-Google Cloud Load Balancer (GKE Gateway — L7 HTTPS)
-  │  TLS terminated via Certificate Manager (Google-managed cert)
-  ▼
-HTTPRoute (ledger-app-gateway, namespace ledger-prod)
+Cloud Run Service: margot-app-dev (us-central1)
+  │  Container: ledger-app (Next.js, port 3000)
+  │  Identity: margot-app-dev service account (Workload Identity)
+  │  Secrets:  Secret Manager refs (DATABASE_URL, ANTHROPIC_API_KEY, NEXTAUTH_SECRET…)
   │
-  ▼
-Service: ledger-app :3000 (ClusterIP)
+  ├── Cloud SQL (unix socket via Cloud SQL connector)
+  │     ledger-postgres-dev (Postgres 16, CMEK, public IP with authorized networks)
+  │     Database: ledger_dev, user: ledger_app_dev
   │
-  ▼
-Deployment: ledger-app
-  ├── Container: ledger-app (Next.js, port 3000, uid 1001)
-  │     envFrom: K8s Secret "ledger-app-secrets"  ◄── ESO sync from Secret Manager
-  │     volumes: none (stateless)
+  ├── Anthropic API (api.anthropic.com:443)
+  │     Used by: Margot CFO agent, narrative generation
   │
-  └── Sidecar: cloud-sql-proxy (uid 65532, private-ip, port 5432)
-        │  authenticates via Workload Identity (no SA keys)
-        ▼
-      Cloud SQL Auth Proxy Wire (private VPC)
-        ▼
-      Cloud SQL Postgres 16 (private IP, CMEK, REGIONAL HA, PITR)
+  └── GCP APIs → Secret Manager, Cloud Logging, Artifact Registry
 
-App egress:
-  ├── 127.0.0.1:5432 → cloud-sql-proxy → Cloud SQL (private IP)
-  ├── GCP APIs (Private Google Access) → Secret Manager, GCS, Logging, Monitoring
-  └── 0.0.0.0/0:443 → Anthropic API (api.anthropic.com)
+Cloud Run Job: margot-migrate-dev
+  │  Runs: npx prisma migrate deploy
+  │  Triggered manually before each deploy
+  │
+  └── Cloud SQL (same connector as above)
+
+Artifact Registry
+  us-central1-docker.pkg.dev/codelab303-ledger/cloud-run-source-deploy/margot-app-dev
+
+Cloud Build
+  gcloud builds submit → builds Dockerfile → pushes to Artifact Registry
 
 Financial file path:
-  Operator → GCS Bucket (codelab303-ledger-financials-prod, CMEK, UBLA)
-    │  admin hits POST /api/admin/ingest { gcsUri, basis }
+  Operator → POST /api/admin/ingest { fileData, basis }
     ▼
-  App reads blob via Workload Identity → hashes → parses → writes to Cloud SQL
+  App hashes → parses → writes to Cloud SQL
     │  writes IngestAudit row (fileName, fileHash, rowCount, status)
     ▼
   Never stored again; never logged as raw content
@@ -64,41 +63,25 @@ Financial file path:
 | Store                 | Encryption                                                |
 | --------------------- | --------------------------------------------------------- |
 | Cloud SQL             | CMEK — `ledger-cmek` (KMS `us-central1`, 90-day rotation) |
-| GCS financials bucket | CMEK — same key                                           |
-| GCS TF state bucket   | Google-managed (GMEK) — acceptable for infra state        |
-| K8s etcd              | GKE-managed encryption                                    |
-| Secret Manager        | Google-managed (built-in)                                 |
+| Secret Manager        | Google-managed (built-in)                                  |
+| Artifact Registry     | Google-managed (GMEK)                                      |
 
 ## Threat Model (summary)
 
 | Threat                               | Control                                                                                      |
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Credential exfiltration via env file | No SA keys anywhere; WIF for CI; Workload Identity for pods                                  |
-| Financial data leakage via API       | Auth required on all routes; ADMIN role for ingest; never logged                             |
+| Credential exfiltration via env file | No SA keys anywhere; WIF for CI; Cloud Run service identity for app           |
+| Financial data leakage via API       | Auth required on all routes; ADMIN role for ingest; never logged              |
 | Financial data leakage to LLM        | Only aggregated metrics sent to Anthropic; raw rows never included; `narrativesEnabled` flag |
-| Lateral movement from pod            | NetworkPolicy restricts egress; read-only filesystem on proxy                                |
-| Supply chain attack (image)          | Binary Authorization (policy TBD), Artifact Registry cleanup policies                        |
-| Insider threat                       | Audit logging on all GCP data access; app-level audit trail in DB                            |
-| Setup_data XLSX in git               | Documented in bootstrap.md; must run git filter-repo before any team member clones           |
-
-## Namespace Layout
-
-```
-Cluster: ledger-cluster-{env}
-  ├── ledger-dev      ← dev workloads
-  ├── ledger-prod     ← prod workloads
-  └── external-secrets ← ESO operator
-```
+| Quota/plan abuse                     | Billing entitlement checks on `/api/cfo/chat` and `/api/narratives/generate`; 402 on breach |
+| Supply chain attack (image)          | Cloud Build provenance; Artifact Registry cleanup policies                    |
+| Insider threat                       | Audit logging on all GCP data access; app-level audit trail in DB             |
+| Setup_data XLSX in git               | Documented in bootstrap.md; must run git filter-repo before any team member clones |
 
 ## Network
 
-```
-VPC: ledger-vpc
-  Subnet: ledger-subnet (10.10.0.0/20)
-    Pod range:     10.20.0.0/14
-    Service range: 10.24.0.0/20
-
-Private Service Access → Cloud SQL (10.200.0.0/16)
-Cloud NAT → outbound internet (Anthropic API)
-Private Google Access → GCP APIs without internet path
-```
+Cloud Run services egress to the internet via Google's managed network infrastructure.
+Cloud SQL is accessible via the Cloud SQL Auth connector (unix socket, no public IP required
+for the app runtime). The Cloud SQL instance has public IP enabled for operational access
+(e.g. local seeding) — authorized networks are kept empty at rest and opened only during
+maintenance windows.
