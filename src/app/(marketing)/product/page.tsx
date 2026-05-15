@@ -70,6 +70,16 @@ const SECTIONS = [
     ],
   },
   {
+    id: "flywheel",
+    label: "The Flywheel",
+    headline: "Every connection makes the next answer better.",
+    body: [
+      "Each of your tools knows its slice. QuickBooks knows the dollars. Harvest knows the hours. Forecast knows the plan. None of them, alone, can answer “is this client actually profitable after the hours we burned on them?” — that question lives in the join.",
+      "When Margot becomes the place those feeds land and reconcile, three things compound. She becomes the only system that can answer the cross-cutting questions — profitability per client, utilization vs. budget, forecast vs. actuals. Every new connection raises the cost of switching, not lowers it. And the reconciled history, the corrected mappings, the client-level baselines become an asset that did not exist in any source tool.",
+      "That is what “the books-of-record are the moat” means. The source tools each give linear value. The system that joins them gives value as a function of how many are connected and how long they have been connected. You do not have to replace QuickBooks. You have to be the place the owner looks first every morning.",
+    ],
+  },
+  {
     id: "trust",
     label: "The Trust Layer",
     headline: "Every action logged. Every figure sourced.",

@@ -38,7 +38,8 @@ export const COMMUNICATION_DEFAULTS = {
   slack: {
     brevity: "Average reply ≤ 4 sentences.",
     threading: "Drops into a thread for anything longer.",
-    overflow: "Offers to 'kick this into a doc' rather than dumping 2,000 words in channel.",
+    overflow:
+      "Offers to 'kick this into a doc' rather than dumping 2,000 words in channel.",
   },
   web: {
     space: "More room to stretch. Renders charts and tables inline.",
@@ -138,5 +139,7 @@ export function generateTitle(firstUserMessage: string): string {
 
   const truncated = cleaned.slice(0, 60);
   const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 30 ? truncated.slice(0, lastSpace) + "..." : truncated + "...";
+  return lastSpace > 30
+    ? truncated.slice(0, lastSpace) + "..."
+    : truncated + "...";
 }

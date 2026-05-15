@@ -39,6 +39,20 @@ A human fractional CFO bills $5K–$15K/month for 4–10 hours/week, with a Slac
 - **Mode-as-feature:** the three modes (Internal / Proposal / Board) are not a setting, they're three distinct emotional jobs Margot does for one buyer. Each one anchors a pricing tier.
 - **Audit-grade by default:** every narrative cites period and basis. That cite-trail is what makes her safe to embed in another AI.
 
+### Why the books-of-record are the moat
+
+"Moat" is Buffett's term — a durable competitive advantage rivals cannot easily erode. "Books-of-record" means the authoritative system where the canonical transactions live: not a dashboard, not a sync, not a read-only mirror. The actual place where entries are written and trusted.
+
+Each adjacent tool knows only its slice. QuickBooks knows the dollars. Harvest knows the hours. Forecast knows the plan. None of them, alone, can answer "is this client actually profitable after the hours we burned on them?" — that question lives in the join. When Margot becomes the place those feeds land and reconcile, three things compound:
+
+1. **Cross-cutting answers only exist where the data is joined.** Profitability per client, utilization vs. budget, forecast vs. actuals, runway against committed work — Margot is the only place those questions resolve. The source tools, by themselves, cannot.
+2. **Switching cost grows with every integration.** Ripping out one connector is annoying. Ripping out the thing that ties them together — and that the team now trusts for decisions — is a re-platforming project no one greenlights. Each new connection makes Margot harder to remove, not easier.
+3. **The data improves the longer Margot is plugged in.** Reconciled history, corrected mappings, learned categorizations, client-level baselines. That asset belongs to Margot and did not exist in any source tool. A competitor starting fresh has to rebuild years of cleanup to match it.
+
+The source tools each give linear value. The platform that unifies them gives value as a function of how many are connected and how long they have been connected — n-way joins, longitudinal trends, and trust built over time. The sources stay commodities; Margot becomes the layer the business actually runs on.
+
+Critically: we do not have to displace QuickBooks to win. We have to be the place the owner looks first every morning. Once that habit forms, Margot is the book of record in practice, even if QuickBooks is still the book of record on paper — and that is the position competitors cannot attack.
+
 ---
 
 ## 3. Target customers

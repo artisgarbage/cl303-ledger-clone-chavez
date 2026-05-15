@@ -39,7 +39,20 @@ export async function buildTurnContext(
 
   let latestPeriodLabel: string | undefined;
   if (latestPeriod) {
-    const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const MONTH_ABBR = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const m = latestPeriod.periodStart.getUTCMonth();
     const y = latestPeriod.periodStart.getUTCFullYear();
     const basisLabel = latestPeriod.basis === "CASH" ? "Cash" : "Accrual";
