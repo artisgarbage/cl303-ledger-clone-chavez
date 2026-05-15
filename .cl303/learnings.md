@@ -284,3 +284,29 @@ Implemented complete billing metering substrate — plans, subscriptions, usage 
 - **npm install issues persist:** Tests written but not executed in sandbox — rely on CI
 - **date-fns for period calc:** Used `startOfMonth()` / `endOfMonth()` for FREE plan period boundaries (no subscription record)
 - **Metadata enriched:** Usage events include narrative ID, mode, message length for analytics
+
+## 2026-05-15 — cl303-ledger-clone-chavez-issue-22-ticket (engineer)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/6  
+**Cost:** $13.1575
+Automated engineer run completed. PR opened: https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/6
+
+## 2026-05-15 — Issue #22 M1: PR Finalization (engineer session 2)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PR:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23  
+**Cost:** ~$2 (PR creation only)
+
+Finalized and opened PR for TIK-013 Milestone 1 billing primitives work.
+
+### Notes
+
+- **Auth environment variable:** Token is `GITHUB_TOKEN` (not `GH_TOKEN`) in this sandbox
+- **Git remote URL pattern:** Must use `https://x-access-token:${GITHUB_TOKEN}@github.com/...` format for push to work
+- **Previous session issue:** Prior engineer session had GH_TOKEN permission issues; this session had GITHUB_TOKEN available
+- **PR creation**: Used `gh pr create` with inline body (heredoc) after temp file approach failed
+- **Branch pushed successfully:** 5 commits from previous M1 implementation session
+- **No code changes this session:** Pure finalization (push + PR creation + docs update)
+- **M1 implementation summary:** 14 files changed, 2169 lines added (schema, entitlements, plan definitions, tests, seed scripts)
+- **Orchestrator requirement:** PR URL must be emitted to stdout for success detection
