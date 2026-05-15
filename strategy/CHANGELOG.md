@@ -4,6 +4,54 @@ All notable changes to the Margot/Ledger platform.
 
 ---
 
+## 2026-05-15 — TIK-013 M2: Authorization Foundation
+
+**Branch:** `issue-22-m2-authz-foundation`  
+**Scope:** Capability-based authorization primitives (partial M2)
+
+### Added
+
+- **Authorization library** (`src/lib/authz/`):
+  - `capabilities.ts` — Complete capability catalog (31 capabilities across 8 resource domains)
+  - `ROLE_CAPABILITIES` — Mapping of ADMIN/MEMBER/VIEWER → capabilities
+  - `can()` — Pure authorization check for UI conditional rendering
+  - `assertCan()` — Authorization guard with audit logging and typed errors
+  - Tenant isolation enforced BEFORE role checks (info-leak prevention)
+
+- **Authorization errors** (`src/lib/authz/errors.ts`):
+  - `AuthorizationDenied` — 403, includes capability
+  - `Unauthenticated` — 401
+  - `TenantMismatch` — 404 (not 403), includes both companyIds for audit
+
+- **Auth helper** (`src/lib/auth-helpers.ts`):
+  - `requireRole()` — Accept single role or array of roles
+  - Extends existing `requireSession()` / `requireAdmin()` / `requireTenant()`
+
+### Tests
+
+- `src/lib/authz/capabilities.test.ts` — Role matrix snapshot, hierarchy validation
+- `src/lib/authz/can.test.ts` — All authorization paths, tenant isolation, audit logging
+- `src/lib/auth-helpers.test.ts` — Updated with requireRole() coverage
+
+### Design Notes
+
+- Capabilities are granular (e.g., `cfo.mode.proposal`, not just `cfo.chat`)
+- VIEWER: read-only + Internal CFO mode only
+- MEMBER: ledger writes + all three CFO modes, no billing/team management
+- ADMIN: superset of MEMBER + billing + team + agent identities
+- Tenant checks short-circuit before role checks (security-first)
+- All `assertCan()` calls write AccessAudit logs (success or failure)
+- `can()` does NOT audit (UI-only)
+
+### Deferred to next M2 PR
+
+- `withGuard()` HOF for route handlers
+- Middleware refactor (agent/billing paths)
+- Route conversions to use guards
+- Integration tests with actual route handlers
+
+---
+
 ## 2026-05-15 — Milestone 1: Billing Primitives
 
 **PR:** [#23](https://github.com/artisgarbage/cl303-ledger-clone-chavez/pull/23) (squash-merged as `a4b8f4c`)  
@@ -111,4 +159,3 @@ Completed remaining test coverage requirements for Milestone 1 (Billing Primitiv
 - Integration: quota enforcement, mode gating, entitlement checks
 
 All M1 requirements now complete. Schema, seed, entitlement library, errors, hooks, and comprehensive tests shipped.
-

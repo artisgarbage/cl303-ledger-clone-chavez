@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { requireAdmin, requireSession, requireTenant } from "./auth-helpers";
+import { requireAdmin, requireRole, requireSession, requireTenant } from "./auth-helpers";
 import * as authModule from "./auth";
 
 // Mock the auth module
@@ -61,6 +61,87 @@ describe("auth-helpers", () => {
       vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
 
       await expect(requireAdmin()).rejects.toThrow("Invalid session: companyId missing");
+    });
+  });
+
+  describe("requireRole", () => {
+    it("should accept single role string", async () => {
+      const mockSession = {
+        user: {
+          id: "user1",
+          email: "admin@test.com",
+          role: "ADMIN",
+          companyId: "company1",
+        },
+      };
+      vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
+
+      const result = await requireRole("ADMIN");
+      expect(result.user.role).toBe("ADMIN");
+      expect(result.user.companyId).toBe("company1");
+    });
+
+    it("should accept array of roles", async () => {
+      const mockSession = {
+        user: {
+          id: "user1",
+          email: "member@test.com",
+          role: "MEMBER",
+          companyId: "company1",
+        },
+      };
+      vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
+
+      const result = await requireRole(["ADMIN", "MEMBER"]);
+      expect(result.user.role).toBe("MEMBER");
+    });
+
+    it("should throw if user role not in allowed list", async () => {
+      const mockSession = {
+        user: {
+          id: "user1",
+          email: "viewer@test.com",
+          role: "VIEWER",
+          companyId: "company1",
+        },
+      };
+      vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
+
+      await expect(requireRole(["ADMIN", "MEMBER"])).rejects.toThrow(
+        "Forbidden: One of these roles required: ADMIN, MEMBER"
+      );
+    });
+
+    it("should throw for unauthenticated request", async () => {
+      vi.mocked(authModule.auth).mockResolvedValue(null);
+
+      await expect(requireRole("ADMIN")).rejects.toThrow("Unauthorized");
+    });
+
+    it("should throw if role is missing", async () => {
+      const mockSession = {
+        user: {
+          id: "user1",
+          email: "user@test.com",
+          companyId: "company1",
+        },
+      };
+      vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
+
+      await expect(requireRole("ADMIN")).rejects.toThrow("Invalid session");
+    });
+
+    it("should throw if companyId is missing", async () => {
+      const mockSession = {
+        user: {
+          id: "user1",
+          email: "user@test.com",
+          role: "ADMIN",
+        },
+      };
+      vi.mocked(authModule.auth).mockResolvedValue(mockSession as any);
+
+      await expect(requireRole("ADMIN")).rejects.toThrow("Invalid session");
     });
   });
 
