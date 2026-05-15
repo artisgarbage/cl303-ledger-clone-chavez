@@ -12,7 +12,7 @@
  */
 
 import { cache } from "react";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { PlanSlug, UsageKind, ChatMode } from "@prisma/client";
 import { PLAN_DEFINITIONS, type Entitlements } from "./plans";
 import { PlanUpgradeRequired, QuotaExceeded, EntitlementDenied } from "./errors";
@@ -71,7 +71,7 @@ export type UsageRecordResult = {
  */
 export const getActivePlan = cache(
   async (companyId: string): Promise<ResolvedPlan> => {
-    const subscription = await db.subscription.findUnique({
+    const subscription = await prisma.subscription.findUnique({
       where: { companyId },
       include: { plan: true },
     });
@@ -239,7 +239,7 @@ export async function checkQuota(
   const periodEnd = subscription?.currentPeriodEnd || endOfMonth(new Date());
 
   // Count usage in current period
-  const usageCount = await db.usageEvent.count({
+  const usageCount = await prisma.usageEvent.count({
     where: {
       companyId,
       kind,
@@ -256,10 +256,10 @@ export async function checkQuota(
 
   if (kind === "NARRATIVE_GENERATED") {
     cap = entitlements.narrativesPerMonth;
-    overageUnitPriceCents = entitlements.overage.narrative?.unitPriceCents ?? null;
+    overageUnitPriceCents = entitlements.overage?.narrative?.unitPriceCents ?? null;
   } else if (kind === "CFO_TURN") {
     cap = entitlements.cfoTurnsPerMonth;
-    overageUnitPriceCents = entitlements.overage.cfoTurn?.unitPriceCents ?? null;
+    overageUnitPriceCents = entitlements.overage?.cfoTurn?.unitPriceCents ?? null;
   } else {
     // Other kinds (agent-specific) not metered in M1
     cap = "unlimited";
@@ -320,7 +320,7 @@ export async function recordUsage(
   }
 
   // Record the event
-  await db.usageEvent.create({
+  await prisma.usageEvent.create({
     data: {
       companyId,
       kind,
@@ -379,7 +379,7 @@ export async function computeOverage(
     entitlements.narrativesPerMonth !== "unlimited" &&
     entitlements.overage.narrative
   ) {
-    const narrativeCount = await db.usageEvent.count({
+    const narrativeCount = await prisma.usageEvent.count({
       where: {
         companyId,
         kind: "NARRATIVE_GENERATED",
@@ -406,7 +406,7 @@ export async function computeOverage(
     entitlements.cfoTurnsPerMonth !== "unlimited" &&
     entitlements.overage.cfoTurn
   ) {
-    const turnCount = await db.usageEvent.count({
+    const turnCount = await prisma.usageEvent.count({
       where: {
         companyId,
         kind: "CFO_TURN",

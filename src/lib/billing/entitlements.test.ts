@@ -14,9 +14,9 @@ import {
 } from "./entitlements";
 import { PlanUpgradeRequired, QuotaExceeded } from "./errors";
 
-// Mock the db module
-vi.mock("@/lib/db", () => ({
-  db: {
+// Mock the prisma module
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
     subscription: {
       findUnique: vi.fn(),
     },
@@ -31,7 +31,7 @@ vi.mock("@/lib/db", () => ({
 const mockNow = new Date("2026-05-15T12:00:00Z");
 vi.setSystemTime(mockNow);
 
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 describe("getActivePlan", () => {
   beforeEach(() => {
@@ -39,7 +39,7 @@ describe("getActivePlan", () => {
   });
 
   it("returns FREE plan when no subscription exists", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     const result = await getActivePlan("company-123");
 
@@ -96,7 +96,7 @@ describe("getActivePlan", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
 
     const result = await getActivePlan("company-123");
 
@@ -113,7 +113,7 @@ describe("assertEntitlement", () => {
   });
 
   it("allows INTERNAL mode on FREE plan", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
       assertEntitlement("company-123", "cfo.mode.internal")
@@ -121,7 +121,7 @@ describe("assertEntitlement", () => {
   });
 
   it("denies PROPOSAL mode on FREE plan", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
       assertEntitlement("company-123", "cfo.mode.proposal")
@@ -129,7 +129,7 @@ describe("assertEntitlement", () => {
   });
 
   it("denies BOARD mode on FREE plan", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
       assertEntitlement("company-123", "cfo.mode.board")
@@ -153,7 +153,7 @@ describe("assertEntitlement", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
 
     await expect(
       assertEntitlement("company-123", "cfo.mode.proposal")
@@ -161,7 +161,7 @@ describe("assertEntitlement", () => {
   });
 
   it("denies QuickBooks import on FREE plan", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
       assertEntitlement("company-123", "imports.qb")
@@ -175,7 +175,7 @@ describe("assertMode", () => {
   });
 
   it("maps mode enum to entitlement key correctly", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(assertMode("company-123", "INTERNAL_CFO")).resolves.toBeUndefined();
     await expect(assertMode("company-123", "PROPOSAL_BIZDEV")).rejects.toThrow(
@@ -204,8 +204,8 @@ describe("checkQuota", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(100);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(100);
 
     const result = await checkQuota("company-123", "NARRATIVE_GENERATED");
 
@@ -214,8 +214,8 @@ describe("checkQuota", () => {
   });
 
   it("calculates remaining quota correctly", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(3);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(3);
 
     const result = await checkQuota("company-123", "NARRATIVE_GENERATED");
 
@@ -241,8 +241,8 @@ describe("checkQuota", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(45);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(45);
 
     const result = await checkQuota("company-123", "NARRATIVE_GENERATED");
 
@@ -257,20 +257,20 @@ describe("recordUsage", () => {
   });
 
   it("throws QuotaExceeded when FREE plan hits cap", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(5); // At cap
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(5); // At cap
 
     await expect(
       recordUsage("company-123", "NARRATIVE_GENERATED", 1)
     ).rejects.toThrow(QuotaExceeded);
 
-    expect(db.usageEvent.create).not.toHaveBeenCalled();
+    expect(prisma.usageEvent.create).not.toHaveBeenCalled();
   });
 
   it("records usage when under cap", async () => {
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(null);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(3);
-    vi.mocked(db.usageEvent.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(3);
+    vi.mocked(prisma.usageEvent.create).mockResolvedValue({} as any);
 
     const result = await recordUsage(
       "company-123",
@@ -283,7 +283,7 @@ describe("recordUsage", () => {
     expect(result.runningTotal).toBe(4);
     expect(result.withinCap).toBe(true);
     expect(result.overageUnits).toBe(0);
-    expect(db.usageEvent.create).toHaveBeenCalledWith({
+    expect(prisma.usageEvent.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         companyId: "company-123",
         kind: "NARRATIVE_GENERATED",
@@ -310,16 +310,16 @@ describe("recordUsage", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(51); // Over cap
-    vi.mocked(db.usageEvent.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(51); // Over cap
+    vi.mocked(prisma.usageEvent.create).mockResolvedValue({} as any);
 
     const result = await recordUsage("company-123", "NARRATIVE_GENERATED", 1);
 
     expect(result.runningTotal).toBe(52);
     expect(result.withinCap).toBe(false);
     expect(result.overageUnits).toBe(2);
-    expect(db.usageEvent.create).toHaveBeenCalled();
+    expect(prisma.usageEvent.create).toHaveBeenCalled();
   });
 });
 
@@ -344,8 +344,8 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
-    vi.mocked(db.usageEvent.count).mockResolvedValue(30);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(30);
 
     const result = await computeOverage(
       "company-123",
@@ -372,10 +372,10 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
 
     // Mock different counts for different kinds
-    vi.mocked(db.usageEvent.count).mockImplementation((args: any) => {
+    vi.mocked(prisma.usageEvent.count).mockImplementation((args: any) => {
       if (args.where.kind === "NARRATIVE_GENERATED") {
         return Promise.resolve(75); // 25 over cap
       }
@@ -413,9 +413,9 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(db.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
 
-    vi.mocked(db.usageEvent.count).mockImplementation((args: any) => {
+    vi.mocked(prisma.usageEvent.count).mockImplementation((args: any) => {
       if (args.where.kind === "NARRATIVE_GENERATED") {
         return Promise.resolve(60); // 10 over
       }
