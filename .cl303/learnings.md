@@ -1,5 +1,71 @@
 # Learnings — cl303-ledger-clone-chavez
 
+Knowledge accumulated from automation runs on this repo.
+
+---
+
+## 2026-05-15 — TIK-013 Milestone 1 (Billing Primitives)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**PRs:** #23 (merged as `a4b8f4c`), #24 (merged as `667d774`)  
+**Cost:** ~$15 total across both sessions
+
+### Notes
+
+- **Pricing source:** All prices and caps directly from `strategy/PRICING_AND_GTM.md` §4 — no invented numbers
+- **Entitlements as JSON:** Plan.entitlementsJson stores full capability set — simpler than normalized tables, easy to version
+- **FREE plan auto-assignment:** Companies without a Subscription row get FREE plan via fallback in `getActivePlan()` — no DB write on read, no backfill needed
+- **Period boundaries:** Use subscription's currentPeriodStart/End if present; else calendar month UTC for FREE plan
+- **Hard cap vs. overage:** FREE plan hard-caps (throws QuotaExceeded, returns 429/402); STARTER+ allows overage (OverageCharge rows written at period-close in M3)
+- **Mode entitlement enforced at turn-time:** `/api/cfo/chat` checks mode entitlement on every request based on plan, not at conversation-creation — allows seamless plan upgrades mid-conversation
+- **Usage recording after success:** `recordUsage()` called AFTER narrative generation or CFO turn completes — never bill for failed work
+- **Audit integration:** All entitlement denials and usage events logged to AccessAudit with structured metadata
+- **Error response shape:** All 402 responses follow standard JSON shape with `error`, `message`, `code`, `requiredPlanSlug`, `upgradeUrl`
+- **Migration safety:** Additive migration — new tables, no FK conflicts, rollback drops 5 tables with no data loss
+- **Seed idempotency:** `seedPlans()` uses upsert by slug — safe to run multiple times
+- **React cache() usage:** `getActivePlan()` wrapped in React `cache()` to avoid repeated DB hits per request
+- **Test coverage:** Full unit test suite for entitlements logic (plan resolution, quota math, overage computation, mode entitlement checks)
+- **M1 scope discipline:** Strict backend-only — no UI changes, no Stripe, no agent endpoints (all M2/M3)
+- **date-fns for period calc:** Used `startOfMonth()` / `endOfMonth()` for FREE plan period boundaries (no subscription record)
+- **Metadata enriched:** Usage events include narrative ID, mode, message length for analytics
+
+## 2026-05-15 — TIK-013 Milestone 2 Foundation (Authorization Layer)
+
+**Issue:** https://github.com/artisgarbage/cl303-ledger-clone-chavez/issues/22  
+**Branch:** `issue-22-m2-authz-foundation`  
+**Status:** Draft PR pending  
+**Cost:** ~$8
+
+### Notes
+
+- **Capability catalog:** 31 capabilities across 8 resource domains — granular (e.g., `cfo.mode.proposal` separate from `cfo.chat`)
+- **ROLE_CAPABILITIES map:** Single source of truth for what each role can do — changes require snapshot test update
+- **Tenant isolation first:** All `assertCan()` calls check tenant match BEFORE role check — info-leak prevention
+- **Audit every authorization:** `assertCan()` logs success AND failure to AccessAudit — `can()` does NOT (UI-only)
+- **Error hierarchy:** `TenantMismatch` returns 404 (not 403) to avoid leaking resource existence; `AuthorizationDenied` returns 403 with capability name
+- **requireRole() helper:** New auth helper accepts single role or array — cleaner than chaining `requireSession()` + manual role checks
+- **VIEWER constraints:** Read-only ledger access + Internal CFO mode only — no narrative generation, no advanced modes, no billing management
+- **MEMBER vs ADMIN:** MEMBER has all CFO modes but no billing/team management; ADMIN is superset of MEMBER
+- **Test discipline:** Snapshot test for role matrix ensures capability changes are reviewed; hierarchy tests validate VIEWER ⊂ MEMBER ⊂ ADMIN
+- **Deferred to next M2 PR:** `withGuard()` HOF, middleware refactor, route conversions, integration tests
+
+---
+
+## Pre-existing learnings (from earlier work)
+
+- **Prisma import path:** Use `@/lib/prisma` (NOT `@/lib/db`)
+- **Optional chaining on overage:** `entitlements.overage?.narrative` — unlimited plans return `undefined` for overage field
+- **Vitest mock must match full API:** Shared `@/lib/prisma` mock factory needs all methods used by billing code
+- **Conversation mock missing `mode` field:** `assertMode()` reads `conversation.mode` from DB; include in Prisma `select` and test mocks
+- **PrismaClient instantiation:** ALL PrismaClient usage requires `PrismaPg` adapter pattern
+- **Prisma generate required:** After adding new models to `schema.prisma`, must run `npx prisma generate`
+- **`Prisma.InputJsonValue` cast:** TypeScript strict mode rejects `Record<string, unknown>` for JSON fields
+- **Cloud Build tsc:** Use `npm run build` to verify TypeScript, not bare `tsc --noEmit`
+- **Cloud Run deployment:** Service `margot-app-dev` (us-central1), project `codelab303-ledger`
+- **Cloud SQL:** `ledger-postgres-dev`, public IP `34.60.4.43`
+- **Test companies:** `codelab303` and `yolo-inc` seeded via `prisma/seed.ts` and `seed-yolo.ts`
+# Learnings — cl303-ledger-clone-chavez
+
 This file contains accumulated knowledge about this codebase from autonomous agent runs.
 
 ## 2026-05-06 — Initial repo adoption
