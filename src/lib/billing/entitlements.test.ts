@@ -96,7 +96,9 @@ describe("getActivePlan", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
 
     const result = await getActivePlan("company-123");
 
@@ -116,7 +118,7 @@ describe("assertEntitlement", () => {
     vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
-      assertEntitlement("company-123", "cfo.mode.internal")
+      assertEntitlement("company-123", "cfo.mode.internal"),
     ).resolves.toBeUndefined();
   });
 
@@ -124,7 +126,7 @@ describe("assertEntitlement", () => {
     vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
-      assertEntitlement("company-123", "cfo.mode.proposal")
+      assertEntitlement("company-123", "cfo.mode.proposal"),
     ).rejects.toThrow(PlanUpgradeRequired);
   });
 
@@ -132,7 +134,7 @@ describe("assertEntitlement", () => {
     vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
-      assertEntitlement("company-123", "cfo.mode.board")
+      assertEntitlement("company-123", "cfo.mode.board"),
     ).rejects.toThrow(PlanUpgradeRequired);
   });
 
@@ -153,10 +155,12 @@ describe("assertEntitlement", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
 
     await expect(
-      assertEntitlement("company-123", "cfo.mode.proposal")
+      assertEntitlement("company-123", "cfo.mode.proposal"),
     ).resolves.toBeUndefined();
   });
 
@@ -164,7 +168,7 @@ describe("assertEntitlement", () => {
     vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
     await expect(
-      assertEntitlement("company-123", "imports.qb")
+      assertEntitlement("company-123", "imports.qb"),
     ).rejects.toThrow(PlanUpgradeRequired);
   });
 });
@@ -177,9 +181,11 @@ describe("assertMode", () => {
   it("maps mode enum to entitlement key correctly", async () => {
     vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
 
-    await expect(assertMode("company-123", "INTERNAL_CFO")).resolves.toBeUndefined();
+    await expect(
+      assertMode("company-123", "INTERNAL_CFO"),
+    ).resolves.toBeUndefined();
     await expect(assertMode("company-123", "PROPOSAL_BIZDEV")).rejects.toThrow(
-      PlanUpgradeRequired
+      PlanUpgradeRequired,
     );
   });
 });
@@ -204,7 +210,9 @@ describe("checkQuota", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
     vi.mocked(prisma.usageEvent.count).mockResolvedValue(100);
 
     const result = await checkQuota("company-123", "NARRATIVE_GENERATED");
@@ -241,7 +249,9 @@ describe("checkQuota", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
     vi.mocked(prisma.usageEvent.count).mockResolvedValue(45);
 
     const result = await checkQuota("company-123", "NARRATIVE_GENERATED");
@@ -261,7 +271,7 @@ describe("recordUsage", () => {
     vi.mocked(prisma.usageEvent.count).mockResolvedValue(5); // At cap
 
     await expect(
-      recordUsage("company-123", "NARRATIVE_GENERATED", 1)
+      recordUsage("company-123", "NARRATIVE_GENERATED", 1),
     ).rejects.toThrow(QuotaExceeded);
 
     expect(prisma.usageEvent.create).not.toHaveBeenCalled();
@@ -277,7 +287,7 @@ describe("recordUsage", () => {
       "NARRATIVE_GENERATED",
       1,
       { test: "metadata" },
-      "user-123"
+      "user-123",
     );
 
     expect(result.runningTotal).toBe(4);
@@ -310,7 +320,9 @@ describe("recordUsage", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
     vi.mocked(prisma.usageEvent.count).mockResolvedValue(51); // Over cap
     vi.mocked(prisma.usageEvent.create).mockResolvedValue({} as any);
 
@@ -344,13 +356,15 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
     vi.mocked(prisma.usageEvent.count).mockResolvedValue(30);
 
     const result = await computeOverage(
       "company-123",
       new Date("2026-05-01"),
-      new Date("2026-05-31")
+      new Date("2026-05-31"),
     );
 
     expect(result).toEqual([]);
@@ -372,7 +386,9 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
 
     // Mock different counts for different kinds
     vi.mocked(prisma.usageEvent.count).mockImplementation((args: any) => {
@@ -385,7 +401,7 @@ describe("computeOverage", () => {
     const result = await computeOverage(
       "company-123",
       new Date("2026-05-01"),
-      new Date("2026-05-31")
+      new Date("2026-05-31"),
     );
 
     expect(result).toHaveLength(1);
@@ -413,7 +429,9 @@ describe("computeOverage", () => {
       },
     };
 
-    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(mockSubscription as any);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(
+      mockSubscription as any,
+    );
 
     vi.mocked(prisma.usageEvent.count).mockImplementation((args: any) => {
       if (args.where.kind === "NARRATIVE_GENERATED") {
@@ -425,7 +443,7 @@ describe("computeOverage", () => {
     const result = await computeOverage(
       "company-123",
       new Date("2026-05-01"),
-      new Date("2026-05-31")
+      new Date("2026-05-31"),
     );
 
     expect(result).toHaveLength(2);

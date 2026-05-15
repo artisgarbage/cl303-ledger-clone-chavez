@@ -331,7 +331,8 @@ export async function recordUsage(
       units,
       userId,
       agentIdentityId,
-      metadata: (metadata || {}) as import("@prisma/client").Prisma.InputJsonValue,
+      metadata: (metadata ||
+        {}) as import("@prisma/client").Prisma.InputJsonValue,
       occurredAt: new Date(),
     },
   });

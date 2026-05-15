@@ -247,7 +247,7 @@ Expanded tool registry from 3 to 10 tools for Margot CFO agent. Partial M2 deliv
 - **Metadata pattern:** Every tool response includes `_meta: { source, period?, basis? }` for citation - Margot can say "according to TimeEntry records for Jan 2026 (cash basis)"
 - **Internal-only tools:** `people.getTrueCost`, `people.getCompensation`, `projects.getMarginInternal` marked as internal-only in descriptions - will be hidden in proposal mode (M3)
 - **Utilization threshold:** `people.getUtilization` uses 65% as standard threshold for under-utilization (industry norm for services firms)
-- **Cost attribution:** `projects.getProfitability` includes contributor breakdown - naive model (cost * hours-ratio) but sufficient for v1
+- **Cost attribution:** `projects.getProfitability` includes contributor breakdown - naive model (cost \* hours-ratio) but sufficient for v1
 - **Period comparison:** `periods.compare` wraps engine function, returns both absolute deltas and YoY percentages
 - **Mode detection stub:** `isToolAvailable()` in modes.ts currently returns true for all tools - M3 will add proposal-mode filtering
 - **Deferred to follow-up:** 5 remaining M2 tools (narrative.generate, proposal.frameForClient, search.semantic, artifacts.toXlsx, models.runScenario) deferred to stay within budget

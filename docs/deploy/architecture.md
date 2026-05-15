@@ -60,23 +60,23 @@ Financial file path:
 
 ## Encryption At Rest
 
-| Store                 | Encryption                                                |
-| --------------------- | --------------------------------------------------------- |
-| Cloud SQL             | CMEK — `ledger-cmek` (KMS `us-central1`, 90-day rotation) |
-| Secret Manager        | Google-managed (built-in)                                  |
-| Artifact Registry     | Google-managed (GMEK)                                      |
+| Store             | Encryption                                                |
+| ----------------- | --------------------------------------------------------- |
+| Cloud SQL         | CMEK — `ledger-cmek` (KMS `us-central1`, 90-day rotation) |
+| Secret Manager    | Google-managed (built-in)                                 |
+| Artifact Registry | Google-managed (GMEK)                                     |
 
 ## Threat Model (summary)
 
 | Threat                               | Control                                                                                      |
 | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Credential exfiltration via env file | No SA keys anywhere; WIF for CI; Cloud Run service identity for app           |
-| Financial data leakage via API       | Auth required on all routes; ADMIN role for ingest; never logged              |
+| Credential exfiltration via env file | No SA keys anywhere; WIF for CI; Cloud Run service identity for app                          |
+| Financial data leakage via API       | Auth required on all routes; ADMIN role for ingest; never logged                             |
 | Financial data leakage to LLM        | Only aggregated metrics sent to Anthropic; raw rows never included; `narrativesEnabled` flag |
-| Quota/plan abuse                     | Billing entitlement checks on `/api/cfo/chat` and `/api/narratives/generate`; 402 on breach |
-| Supply chain attack (image)          | Cloud Build provenance; Artifact Registry cleanup policies                    |
-| Insider threat                       | Audit logging on all GCP data access; app-level audit trail in DB             |
-| Setup_data XLSX in git               | Documented in bootstrap.md; must run git filter-repo before any team member clones |
+| Quota/plan abuse                     | Billing entitlement checks on `/api/cfo/chat` and `/api/narratives/generate`; 402 on breach  |
+| Supply chain attack (image)          | Cloud Build provenance; Artifact Registry cleanup policies                                   |
+| Insider threat                       | Audit logging on all GCP data access; app-level audit trail in DB                            |
+| Setup_data XLSX in git               | Documented in bootstrap.md; must run git filter-repo before any team member clones           |
 
 ## Network
 
