@@ -83,6 +83,10 @@ model Company {
   accessAudits     AccessAudit[]
   conversations    Conversation[]
   personaConfig    PersonaConfig?
+  subscription     Subscription?
+  usageEvents      UsageEvent[]
+  overageCharges   OverageCharge[]
+  agentIdentities  AgentIdentity[]
 }
 
 model CompanySettings {
@@ -419,4 +423,130 @@ model PersonaConfig {
   voiceOverrides Json?    // Per-company persona customizations
   toolOverrides  Json?    // Tool availability overrides
   updatedAt      DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Billing & Pricing — Plans, subscriptions, usage metering, overage tracking
+// Implements the two-rail pricing model from strategy/PRICING_AND_GTM.md
+// ---------------------------------------------------------------------------
+
+enum PlanSlug {
+  FREE
+  STARTER
+  STUDIO
+  PRACTICE
+  ENTERPRISE
+  AGENT_DEV
+  AGENT_PRO
+  AGENT_SCALE
+  LLM_FEDERATION
+}
+
+enum BillingCadence {
+  MONTHLY
+  ANNUAL
+  USAGE
+  CUSTOM
+}
+
+enum PricingRail {
+  HUMAN
+  AGENT
+}
+
+model Plan {
+  id               String         @id @default(cuid())
+  slug             PlanSlug       @unique
+  displayName      String
+  priceUsdCents    Int
+  billingCadence   BillingCadence
+  rail             PricingRail
+  entitlementsJson Json           // Typed as Entitlements in src/lib/billing/plans.ts
+  isPublic         Boolean        @default(true)
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  subscriptions Subscription[]
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  PAUSED
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  companyId            String             @unique
+  company              Company            @relation(fields: [companyId], references: [id])
+  planId               String
+  plan                 Plan               @relation(fields: [planId], references: [id])
+  status               SubscriptionStatus @default(TRIALING)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?            @unique
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+enum UsageKind {
+  NARRATIVE_GENERATED
+  CFO_TURN
+  MODE_PROPOSAL_USED
+  MODE_BOARD_USED
+  IMPORT_RUN
+  AGENT_READ
+  AGENT_NARRATIVE
+  AGENT_SYNTHESIS
+}
+
+model UsageEvent {
+  id              String    @id @default(cuid())
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  userId          String?
+  agentIdentityId String?
+  kind            UsageKind
+  units           Int       @default(1)
+  occurredAt      DateTime  @default(now())
+  metadata        Json?
+
+  @@index([companyId, kind, occurredAt])
+  @@index([agentIdentityId, kind, occurredAt])
+}
+
+model OverageCharge {
+  id             String    @id @default(cuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id])
+  periodStart    DateTime
+  periodEnd      DateTime
+  kind           UsageKind
+  units          Int
+  unitPriceCents Int
+  totalCents     Int
+  settledAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([companyId, periodStart])
+}
+
+model AgentIdentity {
+  id             String    @id @default(cuid())
+  ownerCompanyId String
+  ownerCompany   Company   @relation(fields: [ownerCompanyId], references: [id])
+  displayName    String
+  publicKeyPem   String    @db.Text
+  scopes         String[]
+  issuedAt       DateTime  @default(now())
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+
+  @@index([ownerCompanyId])
 }
