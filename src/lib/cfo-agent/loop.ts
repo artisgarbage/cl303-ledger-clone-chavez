@@ -68,6 +68,7 @@ export async function runTurn(input: AgentTurnInput): Promise<AgentTurnOutput> {
   const systemPrompt = buildSystemPrompt(
     conversation.mode,
     context.companyName,
+    context.latestPeriodLabel,
   );
 
   // Get tools for current mode

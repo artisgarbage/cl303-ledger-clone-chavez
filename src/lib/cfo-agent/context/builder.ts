@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 export interface TurnContext {
   companyName: string;
   fiscalYearStart: number;
+  latestPeriodLabel?: string;
 }
 
 /**
@@ -29,8 +30,25 @@ export async function buildTurnContext(
     throw new Error(`Company ${companyId} not found`);
   }
 
+  // Find the most recent closed monthly period so Margot knows it's queryable
+  const latestPeriod = await prisma.financialPeriod.findFirst({
+    where: { companyId },
+    orderBy: { periodStart: "desc" },
+    select: { periodStart: true, periodEnd: true, basis: true },
+  });
+
+  let latestPeriodLabel: string | undefined;
+  if (latestPeriod) {
+    const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const m = latestPeriod.periodStart.getUTCMonth();
+    const y = latestPeriod.periodStart.getUTCFullYear();
+    const basisLabel = latestPeriod.basis === "CASH" ? "Cash" : "Accrual";
+    latestPeriodLabel = `${MONTH_ABBR[m]} ${y} (${basisLabel})`;
+  }
+
   return {
     companyName: company.name,
     fiscalYearStart: company.fiscalYearStart,
+    latestPeriodLabel,
   };
 }

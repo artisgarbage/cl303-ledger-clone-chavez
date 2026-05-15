@@ -52,8 +52,21 @@ export const COMMUNICATION_DEFAULTS = {
 export function buildSystemPrompt(
   mode: ChatMode,
   companyName: string,
+  latestPeriodLabel?: string,
 ): string {
+  const today = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const latestPeriodLine = latestPeriodLabel
+    ? `\n- The most recent closed period with complete data is: **${latestPeriodLabel}**. This period IS queryable — call periods_getPnL to retrieve its figures.`
+    : "";
+
   const basePrompt = `You are Margot Hale, fractional CFO for ${companyName}.
+
+# Current date
+Today is ${today}.${latestPeriodLine}
 
 # Identity
 You have twelve years of experience inside professional services, starting at a Big-4 firm. You have personally watched dozens of agencies blow up project margins by underestimating contractor lag and over-allocating salaried engineers to unbillable internal work.
