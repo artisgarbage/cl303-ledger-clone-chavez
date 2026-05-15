@@ -38,6 +38,13 @@ vi.mock("@/lib/prisma", () => ({
     message: {
       create: vi.fn(),
     },
+    subscription: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    usageEvent: {
+      count: vi.fn().mockResolvedValue(0),
+      create: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -234,6 +241,9 @@ describe("Margot — multi-turn conversation flow", () => {
     persistedMessages.length = 0;
 
     vi.mocked(requireSession).mockResolvedValue(SESSION as never);
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
+    vi.mocked(prisma.usageEvent.create).mockResolvedValue({} as never);
     vi.mocked(prisma.conversation.create).mockResolvedValue(
       makeConversation() as never,
     );

@@ -14,6 +14,13 @@ vi.mock("@/lib/prisma", () => ({
       create: vi.fn(),
       delete: vi.fn(),
     },
+    subscription: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    usageEvent: {
+      count: vi.fn().mockResolvedValue(0),
+      create: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 
@@ -77,6 +84,9 @@ describe("POST /api/cfo/chat", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.mocked(prisma.subscription.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.usageEvent.count).mockResolvedValue(0);
+    vi.mocked(prisma.usageEvent.create).mockResolvedValue({} as never);
     const mod = await import("./chat/route");
     POST = mod.POST;
   });
@@ -177,6 +187,7 @@ describe("POST /api/cfo/chat", () => {
     vi.mocked(prisma.conversation.findUnique).mockResolvedValue({
       companyId: "codelab303",
       userId: "user-1",
+      mode: "INTERNAL_CFO",
     } as never);
     vi.mocked(handleWebChatTurn).mockResolvedValue({
       message: "35.4% gross margin",
@@ -198,6 +209,7 @@ describe("POST /api/cfo/chat", () => {
     vi.mocked(prisma.conversation.findUnique).mockResolvedValue({
       companyId: "codelab303",
       userId: "user-1",
+      mode: "INTERNAL_CFO",
     } as never);
     vi.mocked(handleWebChatTurn).mockRejectedValue(
       new Error("ANTHROPIC_API_KEY"),
