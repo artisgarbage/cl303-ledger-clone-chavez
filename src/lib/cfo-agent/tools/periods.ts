@@ -16,7 +16,7 @@ import type { AccountingBasis } from "@prisma/client";
 export const periodsListTool: ToolDefinition = {
   name: "periods_list",
   description:
-    "List all available financial periods for this company. Call this FIRST before using periods_getPnL or periods_compare — it returns the exact periodStart and periodEnd dates you must pass to those tools. Never guess period dates; always discover them with this tool. Each period includes an isFullYear flag: only full-year periods (Jan 1 – Dec 31) should be presented as annual income statements; partial periods are YTD snapshots only.",
+    "List all available financial periods for this company. Call this FIRST before using periods_getPnL or periods_compare — it returns the exact periodStart and periodEnd dates you must pass to those tools. Never guess period dates; always discover them with this tool. Each period includes an isFullYear flag: full-year periods (Jan 1 – Dec 31) are annual income statements; monthly periods are complete closed months (e.g. Apr 2026 means all of April is closed and available).",
   input_schema: {
     type: "object",
     properties: {
@@ -96,9 +96,19 @@ async function periodsList(
       p.periodEnd.getUTCDate() === 31;
 
     const dateRange = `${formatDateShort(p.periodStart)} – ${formatDateShort(p.periodEnd)}`;
+    // Check if this is a single calendar month
+    const startMonth = p.periodStart.getUTCMonth();
+    const endMonth = p.periodEnd.getUTCMonth();
+    const isSingleMonth =
+      !isFullYear &&
+      startYear === endYear &&
+      startMonth === endMonth &&
+      p.periodStart.getUTCDate() === 1;
     const label = isFullYear
       ? `FY ${startYear} (${dateRange}, ${basisLabel})`
-      : `YTD ${endYear} (${dateRange}, ${basisLabel})`;
+      : isSingleMonth
+        ? `${MONTH_ABBR[startMonth]} ${startYear} (${basisLabel})`
+        : `YTD ${endYear} (${dateRange}, ${basisLabel})`;
 
     return {
       periodStart: start,

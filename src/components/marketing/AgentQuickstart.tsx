@@ -37,7 +37,7 @@ export function AgentQuickstart() {
   const [lang, setLang] = useState<Lang>("curl");
   const [copied, setCopied] = useState(false);
   const [curlExample, setCurlExample] = useState(() =>
-    buildCurlExample(BASE_URL_PLACEHOLDER)
+    buildCurlExample(BASE_URL_PLACEHOLDER),
   );
 
   useEffect(() => {

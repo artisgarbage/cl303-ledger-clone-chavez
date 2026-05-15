@@ -3,7 +3,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { calculateMonthlyCostBases, type PersonCostBasis } from "@/lib/engine/cost-basis";
+import {
+  calculateMonthlyCostBases,
+  type PersonCostBasis,
+} from "@/lib/engine/cost-basis";
 import { toMonthKey } from "@/lib/utils/dates";
 
 export interface PersonListItem {
@@ -19,10 +22,10 @@ export async function listPeople(
   filters?: {
     isActive?: boolean;
     type?: "SALARIED" | "PARTNER" | "CONTRACTOR";
-  }
+  },
 ): Promise<PersonListItem[]> {
   const where: any = { companyId };
-  
+
   if (filters?.isActive !== undefined) {
     where.isActive = filters.isActive;
   }
@@ -39,10 +42,7 @@ export async function listPeople(
       type: true,
       isActive: true,
     },
-    orderBy: [
-      { isActive: "desc" },
-      { name: "asc" },
-    ],
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
   });
 
   return people;
@@ -62,7 +62,7 @@ export async function getUtilization(
   companyId: string,
   periodStart: Date,
   periodEnd: Date,
-  personId?: string
+  personId?: string,
 ): Promise<PersonUtilization[]> {
   const where: any = { companyId, isActive: true };
   if (personId) {
@@ -143,7 +143,7 @@ export async function getTrueCostForPerson(
   companyId: string,
   personId: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
 ): Promise<PersonCostBasis[]> {
   // Generate month keys for the range
   const months: string[] = [];
@@ -179,7 +179,7 @@ export interface CompensationInfo {
 
 export async function getCompensation(
   companyId: string,
-  personId: string
+  personId: string,
 ): Promise<CompensationInfo | null> {
   const person = await prisma.person.findUnique({
     where: { id: personId, companyId },

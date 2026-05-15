@@ -64,7 +64,7 @@ export interface PeopleListOutput {
 
 async function peopleList(
   companyId: string,
-  input: PeopleListInput
+  input: PeopleListInput,
 ): Promise<PeopleListOutput> {
   const people = await listPeople(companyId, input);
 
@@ -137,7 +137,7 @@ export interface PeopleGetUtilizationOutput {
 
 async function peopleGetUtilization(
   companyId: string,
-  input: PeopleGetUtilizationInput
+  input: PeopleGetUtilizationInput,
 ): Promise<PeopleGetUtilizationOutput> {
   const { periodStart, periodEnd, personId } = input;
 
@@ -145,7 +145,7 @@ async function peopleGetUtilization(
     companyId,
     new Date(periodStart),
     new Date(periodEnd),
-    personId
+    personId,
   );
 
   const threshold = 0.65;
@@ -155,7 +155,7 @@ async function peopleGetUtilization(
         utilization.length
       : 0;
   const underUtilizedCount = utilization.filter(
-    (u) => u.utilizationRate < threshold
+    (u) => u.utilizationRate < threshold,
   ).length;
 
   return {
@@ -194,8 +194,7 @@ export const peopleGetTrueCostTool: ToolDefinition = {
       },
       periodEnd: {
         type: "string",
-        description:
-          "End date of the period in ISO 8601 format (YYYY-MM-DD).",
+        description: "End date of the period in ISO 8601 format (YYYY-MM-DD).",
       },
     },
     required: ["personId", "periodStart", "periodEnd"],
@@ -233,7 +232,7 @@ export interface PeopleGetTrueCostOutput {
 
 async function peopleGetTrueCost(
   companyId: string,
-  input: PeopleGetTrueCostInput
+  input: PeopleGetTrueCostInput,
 ): Promise<PeopleGetTrueCostOutput> {
   const { personId, periodStart, periodEnd } = input;
 
@@ -241,7 +240,7 @@ async function peopleGetTrueCost(
     companyId,
     personId,
     new Date(periodStart),
-    new Date(periodEnd)
+    new Date(periodEnd),
   );
 
   const totalCost = costBases.reduce((sum, basis) => {
@@ -330,7 +329,7 @@ export interface PeopleGetCompensationOutput {
 
 async function peopleGetCompensation(
   companyId: string,
-  input: PeopleGetCompensationInput
+  input: PeopleGetCompensationInput,
 ): Promise<PeopleGetCompensationOutput> {
   const { personId } = input;
 

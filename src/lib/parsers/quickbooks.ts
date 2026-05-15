@@ -139,23 +139,27 @@ function getCellValue(
 ): string | number | null {
   const cell = ws.getRow(row + 1).getCell(col + 1); // ExcelJS is 1-indexed
   if (!cell || cell.value === null || cell.value === undefined) return null;
-  
+
   // Handle different value types
-  if (typeof cell.value === 'object') {
+  if (typeof cell.value === "object") {
     // Rich text or formula
-    if ('richText' in cell.value) {
-      return cell.value.richText.map(t => t.text).join('');
+    if ("richText" in cell.value) {
+      return cell.value.richText.map((t) => t.text).join("");
     }
-    if ('result' in cell.value) {
+    if ("result" in cell.value) {
       return cell.value.result as string | number;
     }
     return null;
   }
-  
+
   return cell.value as string | number;
 }
 
-function getCellIndent(ws: ExcelJS.Worksheet, row: number, col: number): number {
+function getCellIndent(
+  ws: ExcelJS.Worksheet,
+  row: number,
+  col: number,
+): number {
   const cell = ws.getRow(row + 1).getCell(col + 1);
   if (!cell || !cell.style || !cell.style.alignment) return 0;
   return cell.style.alignment.indent ?? 0;
@@ -187,11 +191,13 @@ const SKIP_CATEGORIES = new Set([
   "unapplied cash bill payment expense",
 ]);
 
-export async function parseQuickBooksXLSX(buffer: Buffer): Promise<ParsedQBPeriod> {
+export async function parseQuickBooksXLSX(
+  buffer: Buffer,
+): Promise<ParsedQBPeriod> {
   const workbook = new ExcelJS.Workbook();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await workbook.xlsx.load(buffer as any);
-  
+
   const ws = workbook.worksheets[0];
   if (!ws) throw new Error("No worksheet found in file");
 
@@ -355,8 +361,10 @@ export async function parseQuickBooksXLSX(buffer: Buffer): Promise<ParsedQBPerio
 /**
  * Parse a QuickBooks XLSX file from disk (convenience wrapper for seed scripts)
  */
-export async function parseQuickBooksXLSXFile(filePath: string): Promise<ParsedQBPeriod> {
-  const fs = await import('fs/promises');
+export async function parseQuickBooksXLSXFile(
+  filePath: string,
+): Promise<ParsedQBPeriod> {
+  const fs = await import("fs/promises");
   const buffer = await fs.readFile(filePath);
   return parseQuickBooksXLSX(buffer);
 }
