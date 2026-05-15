@@ -15,7 +15,11 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { PlanSlug, UsageKind, ChatMode } from "@prisma/client";
 import { PLAN_DEFINITIONS, type Entitlements } from "./plans";
-import { PlanUpgradeRequired, QuotaExceeded, EntitlementDenied } from "./errors";
+import {
+  PlanUpgradeRequired,
+  QuotaExceeded,
+  EntitlementDenied,
+} from "./errors";
 import { startOfMonth, endOfMonth } from "date-fns";
 
 // -----------------------------------------------------------------
@@ -108,7 +112,7 @@ export const getActivePlan = cache(
         currentPeriodEnd: periodEnd,
       },
     };
-  }
+  },
 );
 
 // -----------------------------------------------------------------
@@ -122,7 +126,7 @@ export const getActivePlan = cache(
  */
 export async function assertEntitlement(
   companyId: string,
-  key: EntitlementKey
+  key: EntitlementKey,
 ): Promise<void> {
   const { plan, entitlements } = await getActivePlan(companyId);
 
@@ -136,7 +140,7 @@ export async function assertEntitlement(
         throw new PlanUpgradeRequired(
           "STUDIO",
           "Proposal mode is part of Studio.",
-          "/account/billing?upgrade=STUDIO"
+          "/account/billing?upgrade=STUDIO",
         );
       }
       return;
@@ -146,7 +150,7 @@ export async function assertEntitlement(
         throw new PlanUpgradeRequired(
           "STUDIO",
           "Board mode is part of Studio.",
-          "/account/billing?upgrade=STUDIO"
+          "/account/billing?upgrade=STUDIO",
         );
       }
       return;
@@ -159,7 +163,7 @@ export async function assertEntitlement(
         throw new PlanUpgradeRequired(
           "STARTER",
           "QuickBooks import requires Starter or higher.",
-          "/account/billing?upgrade=STARTER"
+          "/account/billing?upgrade=STARTER",
         );
       }
       return;
@@ -172,7 +176,7 @@ export async function assertEntitlement(
         throw new PlanUpgradeRequired(
           "STUDIO",
           "Bank import requires Studio or higher.",
-          "/account/billing?upgrade=STUDIO"
+          "/account/billing?upgrade=STUDIO",
         );
       }
       return;
@@ -182,7 +186,7 @@ export async function assertEntitlement(
         throw new PlanUpgradeRequired(
           "PRACTICE",
           "Read-only API access requires Practice or higher.",
-          "/account/billing?upgrade=PRACTICE"
+          "/account/billing?upgrade=PRACTICE",
         );
       }
       return;
@@ -193,10 +197,7 @@ export async function assertEntitlement(
       return;
 
     default:
-      throw new EntitlementDenied(
-        key,
-        `Unknown entitlement key: ${key}`
-      );
+      throw new EntitlementDenied(key, `Unknown entitlement key: ${key}`);
   }
 }
 
@@ -207,7 +208,7 @@ export async function assertEntitlement(
  */
 export async function assertMode(
   companyId: string,
-  mode: ChatMode
+  mode: ChatMode,
 ): Promise<void> {
   const keyMap: Record<ChatMode, EntitlementKey> = {
     INTERNAL_CFO: "cfo.mode.internal",
@@ -230,12 +231,13 @@ export async function assertMode(
  */
 export async function checkQuota(
   companyId: string,
-  kind: UsageKind
+  kind: UsageKind,
 ): Promise<QuotaStatus> {
   const { plan, entitlements, subscription } = await getActivePlan(companyId);
 
   // Determine period boundaries
-  const periodStart = subscription?.currentPeriodStart || startOfMonth(new Date());
+  const periodStart =
+    subscription?.currentPeriodStart || startOfMonth(new Date());
   const periodEnd = subscription?.currentPeriodEnd || endOfMonth(new Date());
 
   // Count usage in current period
@@ -256,10 +258,12 @@ export async function checkQuota(
 
   if (kind === "NARRATIVE_GENERATED") {
     cap = entitlements.narrativesPerMonth;
-    overageUnitPriceCents = entitlements.overage?.narrative?.unitPriceCents ?? null;
+    overageUnitPriceCents =
+      entitlements.overage?.narrative?.unitPriceCents ?? null;
   } else if (kind === "CFO_TURN") {
     cap = entitlements.cfoTurnsPerMonth;
-    overageUnitPriceCents = entitlements.overage?.cfoTurn?.unitPriceCents ?? null;
+    overageUnitPriceCents =
+      entitlements.overage?.cfoTurn?.unitPriceCents ?? null;
   } else {
     // Other kinds (agent-specific) not metered in M1
     cap = "unlimited";
@@ -310,7 +314,7 @@ export async function recordUsage(
   units: number = 1,
   metadata?: Record<string, unknown>,
   userId?: string,
-  agentIdentityId?: string
+  agentIdentityId?: string,
 ): Promise<UsageRecordResult> {
   const quota = await checkQuota(companyId, kind);
 
@@ -327,7 +331,7 @@ export async function recordUsage(
       units,
       userId,
       agentIdentityId,
-      metadata: metadata || {},
+      metadata: (metadata || {}) as import("@prisma/client").Prisma.InputJsonValue,
       occurredAt: new Date(),
     },
   });
@@ -357,7 +361,7 @@ export async function recordUsage(
 export async function computeOverage(
   companyId: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
 ): Promise<
   Array<{
     kind: UsageKind;
